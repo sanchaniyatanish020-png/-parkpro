@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Split deployment (Netlify frontend + Node API elsewhere):
+# uncomment, replace the host with your API origin, and redeploy.
+# Keep this rule ABOVE the SPA catch-all — Netlify uses the first match.
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://YOUR-API-HOST/api/:splat"
+#   status = 200
+#   force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="icon-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#EEF5FF" />
+    </linearGradient>
+    <linearGradient id="p-ribbon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00A3FF" />
+      <stop offset="55%" stop-color="#1868FE" />
+      <stop offset="100%" stop-color="#0A52E2" />
+    </linearGradient>
+    <linearGradient id="car-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1868FE" />
+      <stop offset="100%" stop-color="#0A52E2" />
+    </linearGradient>
+    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0A52E2" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Card background -->
+  <rect width="128" height="128" rx="28" fill="url(#icon-bg)" />
+
+  <!-- Logo centered -->
+  <g transform="translate(10, 10) scale(1.08)" filter="url(#subtle-shadow)">
+    <!-- P-Ribbon -->
+    <path
+      d="M 22 82 L 22 30 A 14 14 0 0 1 36 16 L 55 16 A 23 23 0 0 1 78 39 A 23 23 0 0 1 55 62 L 46 62"
+      fill="none"
+      stroke="url(#p-ribbon)"
+      stroke-width="14"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Suspension post -->
+    <line x1="50" y1="23" x2="50" y2="43" stroke="url(#car-grad)" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- Car Tires -->
+    <rect x="36" y="67" width="5" height="7" rx="2.5" fill="url(#car-grad)" />
+    <rect x="59" y="67" width="5" height="7" rx="2.5" fill="url(#car-grad)" />
+
+    <!-- Car Side Mirrors -->
+    <rect x="31" y="52" width="4" height="4" rx="2" fill="url(#car-grad)" />
+    <rect x="65" y="52" width="4" height="4" rx="2" fill="url(#car-grad)" />
+
+    <!-- Car Body with evenodd transparent windshield -->
+    <path
+      fill-rule="evenodd"
+      d="M 43 43 C 45 42.5 55 42.5 57 43 C 58.5 43 62.5 52 64.5 54 C 66 55.5 67 57 67 59 L 67 67 C 67 69 65 70 63 70 L 37 70 C 35 70 33 69 33 67 L 33 59 C 33 57 34 55.5 35.5 54 C 37.5 52 41.5 43 43 43 Z M 45 46.5 L 55 46.5 C 56 46.5 59 51.5 60 53.5 C 60.3 54 60 54.5 59.3 54.5 L 40.7 54.5 C 40 54.5 39.7 54 40 53.5 C 41 51.5 44 46.5 45 46.5 Z"
+      fill="url(#car-grad)"
+    />
+
+    <!-- Headlights -->
+    <circle cx="40" cy="62" r="2.2" fill="#FFFFFF" />
+    <circle cx="60" cy="62" r="2.2" fill="#FFFFFF" />
+  </g>
+</svg>
