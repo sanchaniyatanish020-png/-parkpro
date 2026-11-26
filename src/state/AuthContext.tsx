@@ -1,15 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Role, Session } from '@/types'
+import type { Role, Session, StaffPermissionKey, StaffPermissions } from '@/types'
 import { AUTH_KEY, SESSION_KEY, passwordForRole } from '@/lib/settings'
+import { hasPermission, resolvePermissions } from '@/lib/permissions'
 import { useSettings } from '@/state/SettingsContext'
 import { uid } from '@/lib/utils'
-import { verifyBiometric } from '@/lib/biometric'
-import { api, ApiError, clearToken, hasToken, setToken, type AuthResponse } from '@/lib/api'
+import { api, ApiError, clearToken, hasToken, setToken, type ApiUser, type AuthResponse } from '@/lib/api'
 
 interface StoredAuth {
   role: Role
   username: string
+  name?: string
   method: Session['method']
+  permissions?: StaffPermissions
   at: number
   exp?: number
   lastActive: number
@@ -20,14 +22,15 @@ interface AuthContextValue {
   locked: boolean
   role: Role
   username: string
+  name: string
+  permissions: StaffPermissions
+  can: (perm: StaffPermissionKey) => boolean
   method: Session['method'] | null
   signIn: (username: string, password: string, remember: boolean) => Promise<void>
   signInDemo: (role: Role, remember: boolean) => Promise<void>
-  resumeSession: (role: Role, method: Session['method'], username?: string) => boolean
   signOut: () => void
   lock: () => void
   unlock: (password: string) => boolean
-  unlockBiometric: () => Promise<boolean>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   touch: () => void
 }
@@ -84,11 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const role = session?.role ?? settings.role
   const username = session?.username ?? ''
-
-  const remember = useCallback(() => settings.rememberDevice, [settings.rememberDevice])
+  const name = session?.name ?? ''
+  const permissions = useMemo(
+    () => resolvePermissions(role, session?.permissions),
+    [role, session?.permissions],
+  )
+  const can = useCallback(
+    (perm: StaffPermissionKey) => hasPermission(role, permissions, perm),
+    [role, permissions],
+  )
 
   const signOut = useCallback(() => {
     if (hasToken()) {
+      void api.logout().catch(() => undefined)
       void api
         .createLog({
           id: uid('log_'),
@@ -113,7 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const record: StoredAuth = {
         role: result.user.role,
         username: result.user.username,
+        name: result.user.name,
         method,
+        permissions: resolvePermissions(result.user.role, result.user.permissions),
         at,
         lastActive: at,
       }
@@ -150,44 +163,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [completeSignIn],
   )
 
-  const resumeSession = useCallback(
-    (nextRole: Role, method: Session['method'], nextUsername?: string) => {
-      if (!hasToken()) return false
-      const stored = readStored()
-      if (!stored || stored.role !== nextRole) return false
-      const at = Date.now()
-      lastActive.current = at
-      const record: StoredAuth = {
-        ...stored,
-        username: nextUsername || stored.username,
-        method,
-        at,
-        lastActive: at,
-      }
-      setSession(record)
-      setLocked(false)
-      writeStored(record, remember())
-      return true
-    },
-    [remember],
-  )
-
   useEffect(() => {
     if (!session) return
     let active = true
+    const applyUser = (user: ApiUser) => {
+      const nextPerms = resolvePermissions(user.role, user.permissions)
+      setSession((prev) => {
+        if (!prev) return prev
+        const next = { ...prev, role: user.role, username: user.username, name: user.name, permissions: nextPerms }
+        writeStored(next, localStorage.getItem(AUTH_KEY) !== null)
+        return next
+      })
+    }
+
     api
       .me()
       .then(({ user }) => {
-        if (!active) return
-        setSession((prev) => (prev ? { ...prev, role: user.role, username: user.username } : prev))
+        if (active) applyUser(user)
       })
       .catch((error: unknown) => {
         if (!active) return
         if (error instanceof ApiError && (error.status === 401 || error.status === 403)) signOut()
         // status 0 means the server is unreachable — keep the cached session for offline use.
       })
+
+    const onUserEvent = (event: Event) => {
+      const detail = (event as CustomEvent<ApiUser>).detail
+      if (detail) applyUser(detail)
+    }
+    window.addEventListener('parkpro:user', onUserEvent)
     return () => {
       active = false
+      window.removeEventListener('parkpro:user', onUserEvent)
     }
     // Validate the stored token once per app session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,14 +249,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [role, settings],
   )
 
-  const unlockBiometric = useCallback(async () => {
-    const ok = await verifyBiometric(role)
-    if (!ok) return false
-    setLocked(false)
-    lastActive.current = Date.now()
-    return true
-  }, [role])
-
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
       await api.changePassword(currentPassword, newPassword)
@@ -290,21 +289,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       locked: Boolean(session) && locked,
       role,
       username,
+      name,
+      permissions,
+      can,
       method: session?.method ?? null,
       signIn,
       signInDemo,
-      resumeSession,
       signOut,
       lock,
       unlock,
-      unlockBiometric,
       changePassword,
       touch,
     }),
-    [
-      session, locked, role, username, signIn, signInDemo, resumeSession, signOut, lock, unlock,
-      unlockBiometric, changePassword, touch,
-    ],
+    [session, locked, role, username, name, permissions, can, signIn, signInDemo, signOut, lock, unlock, changePassword, touch],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

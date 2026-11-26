@@ -1,16 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  Banknote,
+  Bike,
   Calendar,
+  Car,
   ChevronRight,
+  CreditCard,
   Download,
   IndianRupee,
   Plus,
   Search,
+  Smartphone,
   Ticket,
+  Truck,
+  UserRound,
   X,
+  Zap,
 } from 'lucide-react'
-import type { PassStatus, PlanId, VehicleType } from '@/types'
+import type { PassStatus, PayMode, PlanId, VehicleType } from '@/types'
+import { useAuth } from '@/state/AuthContext'
 import { useData } from '@/state/DataContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
@@ -31,7 +40,6 @@ import { PullToRefresh } from '@/components/PullToRefresh'
 import { ExportModal, type ExportFormat } from '@/components/ExportModal'
 import { exportPassesList } from '@/lib/export'
 import {
-  cn,
   formatDate,
   formatMoney,
   formatPlate,
@@ -40,8 +48,7 @@ import {
   passStatus,
   planEndDate,
   planLabel,
-  PLAN_PRICE,
-  PLANS,
+  proratedMonthlyPrice,
   validPhone,
 } from '@/lib/utils'
 
@@ -54,7 +61,17 @@ const VEHICLE_OPTIONS: { id: VehicleType; label: string }[] = [
   { id: 'ev', label: 'vehicle_ev' },
 ]
 
+const VEHICLE_ICONS: Record<VehicleType, typeof Car> = {
+  car: Car,
+  suv: Truck,
+  bike: Bike,
+  ev: Zap,
+}
+
 export default function PassesPage() {
+  const { can } = useAuth()
+  const canManagePasses = can('managePasses')
+  const canExportReports = can('reports')
   const { passes, ready, createPass, refresh } = useData()
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
@@ -66,7 +83,7 @@ export default function PassesPage() {
     const value = params.get('filter')
     return value === 'active' || value === 'expiring' || value === 'expired' ? value : 'all'
   })
-  const [formOpen, setFormOpen] = useState(() => params.get('new') === '1')
+  const [formOpen, setFormOpen] = useState(() => canManagePasses && params.get('new') === '1')
   const [exportOpen, setExportOpen] = useState(false)
 
   const today = isoDate(new Date())
@@ -77,7 +94,8 @@ export default function PassesPage() {
   const [plan, setPlan] = useState<PlanId>('monthly')
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(isoDate(new Date(planEndDate('monthly', today))))
-  const [amount, setAmount] = useState(PLAN_PRICE.monthly)
+  const [amount, setAmount] = useState(proratedMonthlyPrice(today, settings.monthlyRate))
+  const [paymentMode, setPaymentMode] = useState<PayMode>('cash')
   const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState<{ name?: string; phone?: string; vehicle?: string; dates?: string }>({})
   const [creating, setCreating] = useState(false)
@@ -124,21 +142,19 @@ export default function PassesPage() {
     setPlan('monthly')
     setStartDate(start)
     setEndDate(isoDate(new Date(planEndDate('monthly', start))))
-    setAmount(PLAN_PRICE.monthly)
+    setAmount(proratedMonthlyPrice(start, settings.monthlyRate))
+    setPaymentMode('cash')
     setNotes('')
     setErrors({})
     setFormOpen(true)
   }
 
-  const changePlan = (next: PlanId) => {
-    setPlan(next)
-    setEndDate(isoDate(new Date(planEndDate(next, startDate || today))))
-    setAmount(PLAN_PRICE[next])
-  }
-
   const changeStart = (next: string) => {
     setStartDate(next)
-    if (next) setEndDate(isoDate(new Date(planEndDate(plan, next))))
+    if (next) {
+      setEndDate(isoDate(new Date(planEndDate(plan, next))))
+      setAmount(proratedMonthlyPrice(next, settings.monthlyRate))
+    }
   }
 
   const handleCreate = async () => {
@@ -146,7 +162,7 @@ export default function PassesPage() {
     if (!name.trim()) next.name = t('walkin.requiredName')
     if (!validPhone(phone)) next.phone = t('walkin.requiredPhone')
     if (normalizePlate(vehicle).length < 6) next.vehicle = t('passes.invalidPlate')
-    if (!startDate || !endDate || new Date(endDate).getTime() <= new Date(startDate).getTime()) {
+    if (!startDate || !endDate || new Date(endDate).getTime() < new Date(startDate).getTime()) {
       next.dates = t('passes.invalidDates')
     }
     setErrors(next)
@@ -163,6 +179,7 @@ export default function PassesPage() {
         startDate,
         endDate,
         amount,
+        paymentMode,
         notes,
       })
       toast({
@@ -203,18 +220,22 @@ export default function PassesPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              icon={Download}
-              onClick={() => setExportOpen(true)}
-              disabled={!ready || list.length === 0}
-              className="min-h-[44px] shrink-0 px-3.5 text-sm"
-            >
-              {t('reports.export')}
-            </Button>
-            <Button onClick={openCreate} icon={Plus} className="min-h-[44px] shrink-0 px-3.5 text-sm">
-              {t('passes.new')}
-            </Button>
+            {canExportReports && (
+              <Button
+                variant="ghost"
+                icon={Download}
+                onClick={() => setExportOpen(true)}
+                disabled={!ready || list.length === 0}
+                className="min-h-[44px] shrink-0 px-3.5 text-sm"
+              >
+                {t('reports.export')}
+              </Button>
+            )}
+            {canManagePasses && (
+              <Button onClick={openCreate} icon={Plus} className="min-h-[44px] shrink-0 px-3.5 text-sm">
+                {t('passes.new')}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -284,33 +305,37 @@ export default function PassesPage() {
               />
             </div>
           ) : (
-            list.map((pass) => (
-              <Link
-                key={pass.id}
-                to={`/admin/passes/${pass.id}`}
-                className="surface flex items-center gap-3.5 p-4 rounded-2xl transition-all duration-150 hover:border-amber-400/50 hover:shadow-md active:scale-[0.995]"
-              >
-                <Avatar name={pass.name} photo={pass.photo} size="md" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-navy-900 dark:text-white">{pass.name}</p>
-                    <PassStatusBadge pass={pass} />
+            list.map((pass) => {
+              const VIcon = VEHICLE_ICONS[pass.vehicleType] ?? Car
+              return (
+                <Link
+                  key={pass.id}
+                  to={`/admin/passes/${pass.id}`}
+                  className="surface flex items-center gap-3.5 p-4 rounded-2xl transition-all duration-150 hover:border-blue-400/50 hover:shadow-md active:scale-[0.995]"
+                >
+                  <Avatar name={pass.name} photo={pass.photo} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-navy-900 dark:text-white">{pass.name}</p>
+                      <PassStatusBadge pass={pass} />
+                    </div>
+                    <p className="mt-0.5 inline-flex items-center gap-1.5 truncate font-mono text-xs font-semibold text-navy-600 dark:text-navy-200">
+                      <VIcon className="h-3.5 w-3.5 text-navy-400 dark:text-navy-300" aria-hidden="true" />
+                      <span>{formatPlate(pass.vehicle)}</span>
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-navy-400 dark:text-navy-300">
+                      {t('scan.validTill', { date: formatDate(pass.endDate, lang) })} · {planLabel(pass.plan, t)}
+                    </p>
                   </div>
-                  <p className="mt-0.5 truncate font-mono text-xs font-semibold text-navy-600 dark:text-navy-200">
-                    {formatPlate(pass.vehicle)}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-navy-400 dark:text-navy-300">
-                    {t('scan.validTill', { date: formatDate(pass.endDate, lang) })} · {planLabel(pass.plan, t)}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-sm font-semibold text-navy-900 dark:text-white">
-                    {formatMoney(pass.amount, lang)}
-                  </p>
-                  <ChevronRight className="ml-auto mt-1.5 h-4 w-4 text-navy-300" aria-hidden="true" />
-                </div>
-              </Link>
-            ))
+                  <div className="shrink-0 text-right">
+                    <p className="font-mono text-sm font-semibold text-navy-900 dark:text-white">
+                      {formatMoney(pass.amount, lang)}
+                    </p>
+                    <ChevronRight className="ml-auto mt-1.5 h-4 w-4 text-navy-300" aria-hidden="true" />
+                  </div>
+                </Link>
+              )
+            })
           )}
         </div>
       </div>
@@ -339,6 +364,7 @@ export default function PassesPage() {
             autoComplete="name"
             autoCapitalize="words"
             error={errors.name}
+            icon={UserRound}
           />
 
           <PhoneInput
@@ -376,30 +402,11 @@ export default function PassesPage() {
 
           <div>
             <p className="label">{t('passes.plan')}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {PLANS.map((option) => {
-                const active = plan === option
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => changePlan(option)}
-                    aria-pressed={active}
-                    className={cn(
-                      'flex min-h-[58px] flex-col items-start justify-center rounded-xl border-2 px-3 py-2 text-left transition-colors',
-                      option === 'yearly' && 'col-span-2',
-                      active
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10'
-                        : 'border-navy-100 bg-white hover:border-navy-200 dark:border-white/10 dark:bg-white/5',
-                    )}
-                  >
-                    <span className="text-sm font-semibold text-navy-900 dark:text-white">{t(`plan_${option}`)}</span>
-                    <span className="font-mono text-xs text-navy-500 dark:text-navy-300">
-                      {formatMoney(PLAN_PRICE[option], lang)}
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="flex min-h-[58px] flex-col items-start justify-center rounded-xl border-2 border-amber-500 bg-amber-50 px-3 py-2 dark:bg-amber-500/10">
+              <span className="text-sm font-semibold text-navy-900 dark:text-white">{t('plan_monthly')}</span>
+              <span className="font-mono text-xs text-navy-500 dark:text-navy-300">
+                {formatMoney(amount, lang)} · {t('passes.proratedHint')}
+              </span>
             </div>
           </div>
 
@@ -437,6 +444,20 @@ export default function PassesPage() {
             onChange={(event) => setAmount(Math.max(0, Number(event.target.value) || 0))}
             icon={IndianRupee}
           />
+
+          <div>
+            <p className="label">{t('admin.paymentMode')}</p>
+            <Segmented<PayMode>
+              ariaLabel={t('admin.paymentMode')}
+              value={paymentMode}
+              onChange={setPaymentMode}
+              options={[
+                { id: 'cash', label: t('pay.cash'), icon: Banknote },
+                { id: 'upi', label: t('pay.upi'), icon: Smartphone },
+                { id: 'card', label: t('pay.card'), icon: CreditCard },
+              ]}
+            />
+          </div>
 
           <TextareaInput
             label={t('passes.notes')}

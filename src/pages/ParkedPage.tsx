@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Banknote,
+  Bike,
+  Car,
   CarFront,
   ChevronRight,
   CreditCard,
@@ -11,8 +13,10 @@ import {
   Search,
   Smartphone,
   Timer,
+  Truck,
   UserRoundPlus,
   X,
+  Zap,
 } from 'lucide-react'
 import type { ParkedItem, PayMode, PlanId } from '@/types'
 import { useData } from '@/state/DataContext'
@@ -40,10 +44,18 @@ import {
   PLANS,
 } from '@/lib/utils'
 
+const VEHICLE_ICONS: Record<string, typeof Car> = {
+  car: Car,
+  suv: Truck,
+  bike: Bike,
+  ev: Zap,
+}
+
 export default function ParkedPage() {
   const { parked, walkins, ready, refresh, renewPass } = useData()
-  const { role } = useAuth()
-  const canManage = role === 'owner'
+  const { can } = useAuth()
+  const canManage = can('managePasses')
+  const canScan = can('scan')
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
 
@@ -117,13 +129,15 @@ export default function ParkedPage() {
               {t('parked.count', { n: parked.length })}
             </p>
           </div>
-          <Link
-            to="/scan"
-            className="btn-primary hidden min-h-[44px] px-4 text-sm sm:inline-flex"
-          >
-            <CarFront className="h-5 w-5" aria-hidden="true" />
-            {t('nav.scan')}
-          </Link>
+          {canScan && (
+            <Link
+              to="/scan"
+              className="btn-primary hidden min-h-[44px] px-4 text-sm sm:inline-flex"
+            >
+              <CarFront className="h-5 w-5" aria-hidden="true" />
+              {t('nav.scan')}
+            </Link>
+          )}
         </div>
 
         <div className="relative mt-4">
@@ -184,9 +198,11 @@ export default function ParkedPage() {
                   title={t('parked.emptyTitle')}
                   body={t('parked.emptyBody')}
                   action={
-                    <Link to="/scan" className="btn-primary w-full">
-                      {t('nav.scan')}
-                    </Link>
+                    canScan ? (
+                      <Link to="/scan" className="btn-primary w-full">
+                        {t('nav.scan')}
+                      </Link>
+                    ) : undefined
                   }
                 />
               )}
@@ -195,6 +211,7 @@ export default function ParkedPage() {
             filtered.map((item) => {
               const { pass, since } = item
               const expiring = passStatus(pass) !== 'active'
+              const VIcon = VEHICLE_ICONS[pass.vehicleType] ?? Car
               return (
                 <SwipeableCard
                   key={pass.id}
@@ -203,7 +220,7 @@ export default function ParkedPage() {
                   renewLabel={t('action.renew')}
                   callLabel={t('action.call')}
                 >
-                  <article className="surface p-4">
+                  <article className="surface p-4 transition-all hover:border-blue-400/40 hover:shadow-sm rounded-2xl">
                     <div className="flex items-start gap-3">
                       <Avatar name={pass.name} photo={pass.photo} size="md" />
                       <div className="min-w-0 flex-1">
@@ -213,12 +230,17 @@ export default function ParkedPage() {
                           </h3>
                           {expiring && <PassStatusBadge pass={pass} />}
                         </div>
-                        <p className="mt-0.5 font-mono text-sm font-semibold tracking-wide text-navy-700 dark:text-navy-100">
-                          {formatPlate(pass.vehicle)}
+                        <p className="mt-0.5 inline-flex items-center gap-1.5 font-mono text-sm font-semibold tracking-wide text-navy-700 dark:text-navy-100">
+                          <VIcon className="h-4 w-4 text-navy-400 dark:text-navy-300" aria-hidden="true" />
+                          <span>{formatPlate(pass.vehicle)}</span>
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-500 dark:text-navy-300">
-                          <span className="inline-flex items-center gap-1">
-                            <Timer className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <Timer className="h-3.5 w-3.5 text-navy-400" aria-hidden="true" />
                             {t('parked.since', { time: formatTime(since, lang) })}
                           </span>
                         </div>

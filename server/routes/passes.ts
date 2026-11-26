@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate, requireRole } from '../auth'
+import { authenticate, requirePermission } from '../auth'
 import { parsePassBody } from '../parsers'
 import { deletePass, getPass, listPasses, tokenExists, upsertPass } from '../repository'
 import { asObject, fail } from '../validate'
@@ -18,20 +18,22 @@ function generateToken(): string {
   throw new Error('Could not allocate a unique pass code')
 }
 
-router.get('/', (_req, res) => {
+router.get('/', requirePermission('passes', 'managePasses', 'scan', 'parked', 'history', 'dashboard', 'revenue', 'reports'), (_req, res) => {
   res.json({ passes: listPasses() })
 })
 
-router.post('/', requireRole('owner'), (req, res) => {
+router.post('/', requirePermission('managePasses'), (req, res) => {
   const pass = parsePassBody(asObject(req.body))
   if (!pass.token) pass.token = generateToken()
   else if (tokenExists(pass.token)) fail(409, 'Pass code already in use')
+  pass.collectedBy = req.user!.name
+  pass.collectedByUsername = req.user!.username
 
   upsertPass(pass)
   res.status(201).json({ pass })
 })
 
-router.patch('/:id', requireRole('owner'), (req, res) => {
+router.patch('/:id', requirePermission('managePasses'), (req, res) => {
   const existing = getPass(req.params.id)
   if (!existing) fail(404, 'Pass not found')
 
@@ -39,11 +41,13 @@ router.patch('/:id', requireRole('owner'), (req, res) => {
   if (pass.token !== existing.token) {
     if (tokenExists(pass.token, existing.id)) fail(409, 'Pass code already in use')
   }
+  pass.collectedBy = existing.collectedBy ?? req.user!.name
+  pass.collectedByUsername = existing.collectedByUsername ?? req.user!.username
   upsertPass(pass)
   res.json({ pass })
 })
 
-router.delete('/:id', requireRole('owner'), (req, res) => {
+router.delete('/:id', requirePermission('managePasses'), (req, res) => {
   if (!deletePass(req.params.id)) fail(404, 'Pass not found')
   res.json({ ok: true })
 })

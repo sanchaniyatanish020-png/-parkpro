@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CloudOff, RefreshCw, Wifi } from 'lucide-react'
+import { ArrowLeft, Building2, CloudOff, RefreshCw, Shield, UserRound, Wifi } from 'lucide-react'
 import { useSettings } from '@/state/SettingsContext'
 import { useAuth } from '@/state/AuthContext'
 import { useData } from '@/state/DataContext'
@@ -46,12 +46,17 @@ export function Header() {
         </h1>
 
         <div className="hidden lg:flex items-center gap-2 mr-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-200/60 bg-navy-50/80 px-3 py-1 text-xs font-medium text-navy-700 dark:border-white/10 dark:bg-white/5 dark:text-navy-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            {settings.siteName}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-200/60 bg-navy-50/80 px-3 py-1 text-xs font-semibold text-navy-700 dark:border-white/10 dark:bg-white/5 dark:text-navy-200">
+            <Building2 className="h-3.5 w-3.5 text-[#1868FE]" aria-hidden="true" />
+            <span>{settings.siteName}</span>
           </span>
-          <span className="rounded-full bg-blue-50 border border-blue-200/60 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/20 dark:text-blue-300">
-            {role === 'owner' ? t('auth.owner') : t('auth.gateStaff')}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/60 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/20 dark:text-blue-300">
+            {role === 'owner' ? (
+              <Shield className="h-3 w-3 text-[#1868FE]" aria-hidden="true" />
+            ) : (
+              <UserRound className="h-3 w-3 text-blue-600" aria-hidden="true" />
+            )}
+            <span>{role === 'owner' ? t('auth.owner') : t('auth.gateStaff')}</span>
           </span>
         </div>
 

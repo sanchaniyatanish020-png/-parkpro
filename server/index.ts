@@ -16,6 +16,7 @@ import logRoutes from './routes/logs'
 import passRoutes from './routes/passes'
 import scanRoutes from './routes/scans'
 import siteRoutes from './routes/site'
+import staffRoutes from './routes/staff'
 import syncRoutes from './routes/sync'
 import walkinRoutes from './routes/walkins'
 
@@ -75,6 +76,7 @@ app.use('/api/scans', scanRoutes)
 app.use('/api/walkins', walkinRoutes)
 app.use('/api/logs', logRoutes)
 app.use('/api/site', siteRoutes)
+app.use('/api/staff', staffRoutes)
 app.use('/api/sync', syncRoutes)
 app.use('/api/demo', demoRoutes)
 

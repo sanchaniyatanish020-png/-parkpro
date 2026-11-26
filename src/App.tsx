@@ -1,5 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import type { StaffPermissionKey } from '@/types'
+import { defaultHomeRoute } from '@/lib/permissions'
 import { AppShell } from '@/components/AppShell'
 import { Logo } from '@/components/Logo'
 import { useAuth } from '@/state/AuthContext'
@@ -15,12 +17,12 @@ const AdminHome = lazy(() => import('@/pages/AdminHome'))
 const PassesPage = lazy(() => import('@/pages/PassesPage'))
 const PassDetailPage = lazy(() => import('@/pages/PassDetailPage'))
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'))
-const LogsPage = lazy(() => import('@/pages/LogsPage'))
+const EmployeesPage = lazy(() => import('@/pages/EmployeesPage'))
 
 function BootSplash() {
   return (
     <div className="mesh-navy flex min-h-dvh flex-col items-center justify-center gap-4 text-white">
-      <Logo size={56} wordmarkClass="text-white text-[28px]" />
+      <Logo size={56} invert wordmarkClass="text-white text-[28px]" />
       <span className="h-1.5 w-28 overflow-hidden rounded-full bg-white/15" aria-label="Loading">
         <span className="block h-full w-1/2 animate-pulse rounded-full bg-amber-500" />
       </span>
@@ -29,16 +31,23 @@ function BootSplash() {
 }
 
 function RootRedirect() {
-  const { authenticated, role } = useAuth()
+  const { authenticated, role, permissions } = useAuth()
   if (!authenticated) return <Navigate to="/login" replace />
-  return <Navigate to={role === 'owner' ? '/admin' : '/parked'} replace />
+  return <Navigate to={defaultHomeRoute(role, permissions)} replace />
 }
 
-function OwnerOnly({ children }: { children: ReactNode }) {
-  const { role } = useAuth()
+function RequirePermission({
+  permission,
+  children,
+}: {
+  permission: StaffPermissionKey | StaffPermissionKey[]
+  children: ReactNode
+}) {
+  const { role, permissions, can } = useAuth()
   const location = useLocation()
-  if (role !== 'owner') {
-    return <Navigate to="/parked" replace state={{ from: location.pathname }} />
+  const allowed = Array.isArray(permission) ? permission.some((perm) => can(perm)) : can(permission)
+  if (!allowed) {
+    return <Navigate to={defaultHomeRoute(role, permissions)} replace state={{ from: location.pathname }} />
   }
   return <>{children}</>
 }
@@ -57,49 +66,77 @@ export default function App() {
           }
         >
           <Route index element={<RootRedirect />} />
-          <Route path="/scan" element={<ScanPage />} />
-          <Route path="/parked" element={<ParkedPage />} />
-          <Route path="/walk-in" element={<WalkInPage />} />
-          <Route path="/history" element={<HistoryPage />} />
+          <Route
+            path="/scan"
+            element={
+              <RequirePermission permission="scan">
+                <ScanPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/parked"
+            element={
+              <RequirePermission permission="parked">
+                <ParkedPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/walk-in"
+            element={
+              <RequirePermission permission="walkin">
+                <WalkInPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <RequirePermission permission="history">
+                <HistoryPage />
+              </RequirePermission>
+            }
+          />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="/admin"
             element={
-              <OwnerOnly>
+              <RequirePermission permission={['dashboard', 'revenue']}>
                 <AdminHome />
-              </OwnerOnly>
+              </RequirePermission>
             }
           />
           <Route
             path="/admin/passes"
             element={
-              <OwnerOnly>
+              <RequirePermission permission="passes">
                 <PassesPage />
-              </OwnerOnly>
+              </RequirePermission>
             }
           />
           <Route
             path="/admin/passes/:id"
             element={
-              <OwnerOnly>
+              <RequirePermission permission="passes">
                 <PassDetailPage />
-              </OwnerOnly>
+              </RequirePermission>
             }
           />
           <Route
             path="/admin/reports"
             element={
-              <OwnerOnly>
+              <RequirePermission permission="reports">
                 <ReportsPage />
-              </OwnerOnly>
+              </RequirePermission>
             }
           />
           <Route
-            path="/admin/logs"
+            path="/admin/employees"
             element={
-              <OwnerOnly>
-                <LogsPage />
-              </OwnerOnly>
+              <RequirePermission permission="employees">
+                <EmployeesPage />
+              </RequirePermission>
             }
           />
         </Route>

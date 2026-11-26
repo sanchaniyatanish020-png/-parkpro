@@ -1,12 +1,12 @@
 import { Router } from 'express'
-import { authenticate, requireRole } from '../auth'
+import { authenticate, requirePermission, requireRole } from '../auth'
 import { parseLogBody } from '../parsers'
 import { clearLogs, insertLog, listLogs } from '../repository'
 
 const router = Router()
 router.use(authenticate)
 
-router.get('/', (_req, res) => {
+router.get('/', requirePermission('employees', 'dashboard', 'revenue', 'reports'), (_req, res) => {
   res.json({ logs: listLogs() })
 })
 

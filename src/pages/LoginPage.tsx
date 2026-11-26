@@ -6,7 +6,6 @@ import {
   Check,
   Eye,
   EyeOff,
-  Fingerprint,
   Loader2,
   Lock,
   QrCode,
@@ -19,9 +18,9 @@ import {
 import { useAuth } from '@/state/AuthContext'
 import { useSettings } from '@/state/SettingsContext'
 import { api, ApiError } from '@/lib/api'
+import { defaultHomeRoute } from '@/lib/permissions'
 import type { Lang, Role } from '@/types'
 import { LANG_OPTIONS } from '@/lib/i18n'
-import { biometricAvailable, enrollBiometric, hasBiometricEnrolled, verifyBiometric } from '@/lib/biometric'
 import { vibrate, HAPTIC } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
 
@@ -33,21 +32,15 @@ const HERO_FEATURES = [
 
 export default function LoginPage() {
   const { t, settings, update, lang } = useSettings()
-  const { authenticated, role: activeRole, signIn, signInDemo, resumeSession } = useAuth()
+  const { authenticated, role: activeRole, permissions, signIn, signInDemo } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(settings.rememberDevice)
-  const [bioReady, setBioReady] = useState(false)
-  const [bioBusy, setBioBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
   const [demoEnabled, setDemoEnabled] = useState(true)
-
-  useEffect(() => {
-    void biometricAvailable().then(setBioReady)
-  }, [])
 
   useEffect(() => {
     let active = true
@@ -63,7 +56,7 @@ export default function LoginPage() {
   }, [])
 
   if (authenticated) {
-    return <Navigate to={activeRole === 'owner' ? '/admin' : '/parked'} replace />
+    return <Navigate to={defaultHomeRoute(activeRole, permissions)} replace />
   }
 
   const describeError = (err: unknown) => {
@@ -107,29 +100,6 @@ export default function LoginPage() {
       vibrate(HAPTIC.error, settings.haptics)
     } finally {
       setBusy(false)
-    }
-  }
-
-  const useBiometric = async () => {
-    setBioBusy(true)
-    setError('')
-    try {
-      const defaultRole = settings.role || 'owner'
-      const ok = hasBiometricEnrolled(defaultRole)
-        ? await verifyBiometric(defaultRole)
-        : await enrollBiometric(defaultRole)
-      const resumed =
-        ok &&
-        resumeSession(
-          defaultRole,
-          'biometric',
-          defaultRole === 'owner' ? settings.adminUsername || 'admin' : settings.staffUsername || 'staff',
-        )
-      if (!resumed) {
-        setError(t('auth.biometricFailed'))
-      }
-    } finally {
-      setBioBusy(false)
     }
   }
 
@@ -387,18 +357,6 @@ export default function LoginPage() {
                   )}
                 </button>
               </form>
-
-              {bioReady && (
-                <button
-                  type="button"
-                  onClick={() => void useBiometric()}
-                  disabled={bioBusy}
-                  className="mt-3 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-blue-200/80 bg-blue-50/60 text-xs font-semibold text-[#1868FE] transition-colors hover:bg-blue-50 disabled:opacity-50 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-300 dark:hover:bg-sky-400/15"
-                >
-                  <Fingerprint className="h-4 w-4" aria-hidden="true" />
-                  <span>{t('auth.biometric')}</span>
-                </button>
-              )}
 
               <div className="mt-5">
                 {demoEnabled && (

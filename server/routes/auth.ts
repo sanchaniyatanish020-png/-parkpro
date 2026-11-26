@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express'
 import { authenticate, hashPassword, issueToken, publicUser, verifyPassword } from '../auth'
 import { env } from '../env'
-import { findUserByUsername, updateUserPassword } from '../repository'
+import { findUserByUsername, recordEmployeeLogin, recordEmployeeLogout, updateUserPassword } from '../repository'
 import { asObject, fail, oneOf, str } from '../validate'
 
 const router = Router()
@@ -43,7 +43,9 @@ router.post('/login', (req, res) => {
     recordFailure(key)
     fail(401, 'Wrong username or password')
   }
+  if (!user.active) fail(403, 'This staff account has been disabled. Contact the administrator.')
   attempts.delete(key)
+  recordEmployeeLogin(user.id)
   res.json({ token: issueToken(user), user: publicUser(user) })
 })
 
@@ -53,7 +55,14 @@ router.post('/demo', (req, res) => {
   const role = oneOf(body.role, 'role', ['owner', 'staff'] as const)
   const user = findUserByUsername(role === 'owner' ? 'admin' : 'staff')
   if (!user) fail(404, 'Demo account not found')
+  if (!user.active) fail(403, 'This account is currently disabled')
+  recordEmployeeLogin(user.id)
   res.json({ token: issueToken(user), user: publicUser(user) })
+})
+
+router.post('/logout', authenticate, (req, res) => {
+  recordEmployeeLogout(req.user!.id)
+  res.json({ ok: true })
 })
 
 router.get('/me', authenticate, (req, res) => {

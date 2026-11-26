@@ -26,7 +26,9 @@ import type {
 import { db } from '@/lib/db'
 import { api, ApiError, hasToken } from '@/lib/api'
 import { startLiveUpdates } from '@/lib/live'
-import { addDays, addMonths, daysLeft, normalizePlate, passStatus, PLAN_MONTHS, PLAN_PRICE, uid } from '@/lib/utils'
+import { buildPaymentRecords } from '@/lib/payments'
+import { daysLeft, normalizePlate, passStatus, renewMonthEndAndPrice, uid } from '@/lib/utils'
+import { useAuth } from '@/state/AuthContext'
 import { useToast } from '@/state/ToastContext'
 import { useSettings } from '@/state/SettingsContext'
 
@@ -51,7 +53,7 @@ interface DataContextValue {
   renewPass: (pass: Pass, plan: PlanId, payment: PayMode) => Promise<Pass>
   deletePass: (id: string) => Promise<void>
   addWalkIn: (input: NewWalkInInput) => Promise<WalkIn>
-  updateSite: (patch: { name?: string; capacity?: number }) => Promise<void>
+  updateSite: (patch: { name?: string; capacity?: number; monthlyRate?: number }) => Promise<void>
   syncNow: (manual?: boolean) => Promise<void>
   refresh: () => Promise<void>
   reset: () => Promise<void>
@@ -96,6 +98,7 @@ function tokenFromPayload(text: string): string {
 export function DataProvider({ children }: { children: ReactNode }) {
   const { settings, update, t } = useSettings()
   const { toast } = useToast()
+  const { name: collectorName, username: collectorUsername } = useAuth()
 
   const [passes, setPasses] = useState<Pass[]>([])
   const [scans, setScans] = useState<ScanEvent[]>([])
@@ -126,6 +129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   pendingRef.current = pendingCount
 
   const hydrate = useCallback(async () => {
+    if (!hasToken()) return
     const payload = await api.bootstrap()
     const nextScans = sortByAtDesc(mergePending(scansRef.current, payload.scans))
     const nextWalkins = sortByAtDesc(mergePending(walkinsRef.current, payload.walkins))
@@ -135,7 +139,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setScans(nextScans)
     setWalkins(nextWalkins)
     setLogs(nextLogs)
-    update({ siteName: payload.site.name, capacity: payload.site.capacity })
+    update({ siteName: payload.site.name, capacity: payload.site.capacity, monthlyRate: payload.site.monthlyRate ?? 1800 })
+    if (payload.user) {
+      window.dispatchEvent(new CustomEvent('parkpro:user', { detail: payload.user }))
+    }
     setLastSync(payload.at)
     localStorage.setItem(LAST_SYNC_KEY, payload.at)
 
@@ -300,36 +307,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
         startDate: input.startDate,
         endDate: input.endDate,
         amount: input.amount,
+        paymentMode: input.paymentMode ?? 'cash',
+        collectedBy: collectorName || undefined,
+        collectedByUsername: collectorUsername || undefined,
         slot: input.slot?.trim() || undefined,
         notes: input.notes?.trim() || undefined,
         photo: input.photo,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       }
-      await api.createPass(pass)
-      setPasses((prev) => [pass, ...prev])
-      void db.putPass(pass)
+      const response = await api.createPass(pass)
+      const savedPass = response.pass ?? pass
+      setPasses((prev) => [savedPass, ...prev])
+      void db.putPass(savedPass)
       await addLog({
         kind: 'pass',
-        message: `New ${input.plan.replace('_', ' ')} pass · ${pass.name} · ${pass.vehicle} · ₹${input.amount}`,
+        message: `New ${input.plan.replace('_', ' ')} pass · ${savedPass.name} · ${savedPass.vehicle} · ₹${input.amount} (${savedPass.paymentMode})`,
         level: 'success',
-        meta: { passId: pass.id, amount: input.amount },
+        meta: { passId: savedPass.id, amount: input.amount, payment: savedPass.paymentMode },
       })
-      return pass
+      return savedPass
     },
-    [passes, addLog],
+    [passes, addLog, collectorName, collectorUsername],
   )
 
   const renewPass = useCallback(
     async (pass: Pass, plan: PlanId, payment: PayMode): Promise<Pass> => {
       const now = new Date()
-      const base = new Date(pass.endDate).getTime() > now.getTime() ? new Date(pass.endDate) : now
-      const end = plan === 'daily' ? addDays(base, 1) : addMonths(base, PLAN_MONTHS[plan])
+      const { end, price } = renewMonthEndAndPrice(pass.endDate, now, settings.monthlyRate)
       const updated: Pass = {
         ...pass,
         plan,
         endDate: end.toISOString(),
-        amount: pass.amount + PLAN_PRICE[plan],
+        amount: pass.amount + price,
+        paymentMode: payment,
         updatedAt: now.toISOString(),
       }
       const result = await api.updatePass(updated)
@@ -337,13 +348,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       void db.putPass(result.pass)
       await addLog({
         kind: 'pass',
-        message: `Renewed ${pass.name} · ${pass.vehicle} · ${plan.replace('_', ' ')} · ₹${PLAN_PRICE[plan]} (${payment})`,
+        message: `Renewed ${pass.name} · ${pass.vehicle} · monthly · ₹${price} (${payment})`,
         level: 'success',
-        meta: { passId: pass.id, amount: PLAN_PRICE[plan], payment },
+        meta: {
+          passId: pass.id,
+          amount: price,
+          payment,
+          collectedBy: collectorName || undefined,
+          collectedByUsername: collectorUsername || undefined,
+        },
       })
       return result.pass
     },
-    [addLog],
+    [addLog, collectorName, collectorUsername, settings.monthlyRate],
   )
 
   const deletePass = useCallback(
@@ -369,30 +386,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
         vehicleType: input.vehicleType,
         photo: input.photo,
         amount: input.amount,
+        paymentMode: input.paymentMode ?? 'cash',
+        collectedBy: collectorName || undefined,
+        collectedByUsername: collectorUsername || undefined,
         at: new Date().toISOString(),
         synced: onlineRef.current,
       }
+      let savedEntry = entry
       if (onlineRef.current) {
         try {
-          await api.createWalkIn(entry)
+          const response = await api.createWalkIn(entry)
+          if (response.walkin) savedEntry = response.walkin
         } catch (error) {
           if (!(error instanceof ApiError) || error.status !== 0) throw error
-          entry.synced = false
+          savedEntry = { ...entry, synced: false }
         }
       }
-      await db.putWalkIn(entry)
-      setWalkins((prev) => [entry, ...prev])
+      await db.putWalkIn(savedEntry)
+      setWalkins((prev) => [savedEntry, ...prev])
       await addLog({
         kind: 'walkin',
-        message: `Walk-in · ${entry.name} · ${entry.vehicle ?? 'no vehicle'} · ₹${entry.amount}${
-          entry.synced ? '' : ' · queued offline'
+        message: `Walk-in · ${savedEntry.name} · ${savedEntry.vehicle ?? 'no vehicle'} · ₹${savedEntry.amount} (${savedEntry.paymentMode})${
+          savedEntry.synced ? '' : ' · queued offline'
         }`,
         level: 'success',
-        meta: { amount: entry.amount },
+        meta: { amount: savedEntry.amount, payment: savedEntry.paymentMode },
       })
-      return entry
+      return savedEntry
     },
-    [addLog],
+    [addLog, collectorName, collectorUsername],
   )
 
   const syncNow = useCallback(
@@ -494,10 +516,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast, t])
 
   const updateSite = useCallback(
-    async (patch: { name?: string; capacity?: number }) => {
+    async (patch: { name?: string; capacity?: number; monthlyRate?: number }) => {
       try {
         const { site } = await api.updateSite(patch)
-        update({ siteName: site.name, capacity: site.capacity })
+        update({ siteName: site.name, capacity: site.capacity, monthlyRate: site.monthlyRate })
       } catch (error) {
         toast({
           message: error instanceof Error ? error.message : t('toast.error'),
@@ -541,7 +563,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setReady(true)
       if (typeof navigator === 'undefined' || navigator.onLine) {
         try {
-          await hydrate()
+          if (hasToken()) {
+            await hydrate()
+          }
         } catch {
           /* offline start — cached data is displayed */
         }
@@ -577,9 +601,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const expiringCount = passes.filter((p) => passStatus(p, now) === 'expiring').length
     const expiredCount = passes.length - activePasses
     const walkinsToday = walkins.filter((w) => new Date(w.at).toDateString() === todayKey)
-    const passesToday = passes.filter((p) => new Date(p.createdAt).toDateString() === todayKey)
-    const todayRevenue =
-      walkinsToday.reduce((sum, w) => sum + w.amount, 0) + passesToday.reduce((sum, p) => sum + p.amount, 0)
+    const allPayments = buildPaymentRecords({ passes, walkins, logs })
+    const todayPayments = allPayments.filter((item) => new Date(item.at).toDateString() === todayKey)
+
+    let todayCashRevenue = 0
+    let todayOnlineRevenue = 0
+    let todayCashCount = 0
+    let todayOnlineCount = 0
+    for (const item of todayPayments) {
+      if (item.paymentMode === 'cash') {
+        todayCashRevenue += item.amount
+        todayCashCount += 1
+      } else {
+        todayOnlineRevenue += item.amount
+        todayOnlineCount += 1
+      }
+    }
+
+    const todayRevenue = todayCashRevenue + todayOnlineRevenue
     const todayEntries =
       scans.filter((s) => new Date(s.at).toDateString() === todayKey && s.direction === 'IN').length +
       walkinsToday.length
@@ -594,12 +633,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       occupied: 0,
       occupancyPct: 0,
       todayRevenue,
+      todayCashRevenue,
+      todayOnlineRevenue,
+      todayCashCount,
+      todayOnlineCount,
+      todayPayments,
       todayEntries,
       pending: pendingCount,
       totalPasses: passes.length,
       totalRevenue: passes.reduce((sum, p) => sum + p.amount, 0) + walkins.reduce((sum, w) => sum + w.amount, 0),
     }
-  }, [passes, walkins, scans, pendingCount, settings.capacity])
+  }, [passes, walkins, scans, logs, pendingCount, settings.capacity])
 
   const parked = useMemo<ParkedItem[]>(() => {
     const latest = new Map<string, ScanEvent>()

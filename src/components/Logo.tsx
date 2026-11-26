@@ -5,14 +5,18 @@ export function Logo({
   showWordmark = true,
   showSubtitle = false,
   wordmarkClass,
+  invert,
   className,
 }: {
   size?: number
   showWordmark?: boolean
   showSubtitle?: boolean
   wordmarkClass?: string
+  invert?: boolean
   className?: string
 }) {
+  const isWhite = invert || (wordmarkClass ? /text-white|text-navy-100|text-slate-100/.test(wordmarkClass) : false)
+
   return (
     <span className={cn('inline-flex items-center gap-3 select-none', className)}>
       {/* Modern Ribbon "P" with Sheltered Smart Car */}
@@ -80,11 +84,16 @@ export function Logo({
       {showWordmark && (
         <div className="flex flex-col leading-tight">
           <span className={cn('font-display text-xl font-bold tracking-tight', wordmarkClass)}>
-            <span className="text-[#0B1F3A] dark:text-white">Park</span>
-            <span className="text-[#1868FE]">Pro</span>
+            <span className={isWhite ? 'text-white' : 'text-[#0B1F3A] dark:text-white'}>Park</span>
+            <span className={isWhite ? 'text-[#38BDF8]' : 'text-[#1868FE]'}>Pro</span>
           </span>
           {showSubtitle && (
-            <span className="text-[10px] font-semibold text-slate-500 tracking-wide mt-0.5">
+            <span
+              className={cn(
+                'text-[10px] font-semibold tracking-wide mt-0.5',
+                isWhite ? 'text-navy-300' : 'text-slate-500 dark:text-navy-300',
+              )}
+            >
               Parking Management System
             </span>
           )}

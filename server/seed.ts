@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { AuditLog, Pass, ScanEvent, WalkIn } from '../src/types'
-import { addDays, addMonths, formatPlate, isoDate, PLAN_MONTHS, PLAN_PRICE, uid } from '../src/lib/utils'
+import { addDays, formatPlate, isoDate, monthEndDate, proratedMonthlyPrice, uid } from '../src/lib/utils'
+import { resolvePermissions } from '../src/lib/permissions'
 import { hashPassword } from './auth'
 import { env } from './env'
 import {
@@ -61,7 +62,7 @@ const NAMES = [
 const PLATES_LEFT = ['GJ01', 'GJ05', 'GJ06', 'GJ18', 'GJ27', 'GJ12', 'GJ03']
 const PLATE_LETTERS = ['AB', 'AK', 'BC', 'CD', 'DF', 'ER', 'FG', 'GH', 'HJ', 'JK', 'KL', 'MN', 'NP', 'PQ', 'RS', 'TU', 'VW', 'XY', 'ZA', 'BK', 'CP', 'DT']
 const VEHICLE_TYPES = ['car', 'car', 'car', 'suv', 'bike', 'bike', 'ev'] as const
-const PLANS = ['monthly', 'monthly', 'monthly', 'quarterly', 'half_yearly', 'yearly', 'daily'] as const
+const PLANS = ['monthly'] as const
 const SLOT_LETTERS = ['A', 'B', 'C', 'D']
 
 function plate(rnd: () => number): string {
@@ -91,6 +92,10 @@ function seedUsers(): void {
       passwordHash: hashPassword(initialPassword(user)),
       role: user.role,
       name: user.name,
+      active: true,
+      permissions: resolvePermissions(user.role),
+      hourlyRate: user.role === 'staff' ? 150 : 0,
+      monthlySalary: user.role === 'staff' ? 15000 : 0,
       createdAt: now,
     })
   }
@@ -117,35 +122,30 @@ function seedDemoData(): void {
     const name = NAMES[i % NAMES.length]
     const type = VEHICLE_TYPES[Math.floor(rnd() * VEHICLE_TYPES.length)]
     const vehicle = plate(rnd)
-    let plan = PLANS[Math.floor(rnd() * PLANS.length)]
+    let plan = PLANS[0] as Pass['plan']
     let start: Date
     let end: Date
 
     if (i < 3) {
-      end = addDays(now, -(2 + Math.floor(rnd() * 12)))
-      start = addMonths(end, -Math.max(1, PLAN_MONTHS[plan]))
+      // Expired passes from previous months
+      start = addDays(now, -(30 + Math.floor(rnd() * 20)))
+      end = monthEndDate(start)
     } else if (i < 9) {
-      end = addDays(now, 1 + Math.floor(rnd() * 3))
-      start = addMonths(end, -Math.max(1, PLAN_MONTHS[plan]))
-    } else if (i < 13) {
-      plan = 'daily'
-      start = new Date(now.getTime() - rnd() * 4 * 3600_000)
-      end = addDays(now, 1 + Math.floor(rnd() * 2))
+      // Active passes that started this month (expire end of this month)
+      start = addDays(now, -Math.floor(rnd() * 15))
+      end = monthEndDate(start)
     } else if (i < 22) {
-      plan = rnd() > 0.4 ? 'monthly' : 'quarterly'
-      start = new Date(now.getTime() - (0.2 + rnd() * 6) * 86_400_000)
-      end = addMonths(start, PLAN_MONTHS[plan])
+      // Active passes started recently
+      start = addDays(now, -Math.floor(rnd() * 10))
+      end = monthEndDate(start)
     } else if (i < 40) {
-      start = new Date(now.getTime() - (20 + rnd() * 170) * 86_400_000)
-      end = addMonths(start, PLAN_MONTHS[plan])
-      if (end.getTime() < now.getTime() + 5 * 86_400_000) end = addDays(now, 10 + Math.floor(rnd() * 80))
+      // Mix of older and current passes
+      start = addDays(now, -(Math.floor(rnd() * 60)))
+      end = monthEndDate(start)
     } else {
-      if (plan === 'daily') plan = 'monthly'
-      start = new Date(now.getTime() - Math.floor(rnd() * 40) * 86_400_000)
-      end = addMonths(start, Math.max(1, PLAN_MONTHS[plan]))
-      if (end.getTime() < now.getTime() + 20 * 86_400_000) {
-        end = addDays(now, 20 + Math.floor(rnd() * 300))
-      }
+      // Current month passes
+      start = addDays(now, -Math.floor(rnd() * 20))
+      end = monthEndDate(start)
     }
 
     passes.push({
@@ -158,8 +158,10 @@ function seedDemoData(): void {
       plan,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
-      amount: PLAN_PRICE[plan],
+      amount: proratedMonthlyPrice(start),
       slot: `${SLOT_LETTERS[Math.floor(rnd() * SLOT_LETTERS.length)]}-${String(1 + Math.floor(rnd() * 96)).padStart(2, '0')}`,
+      collectedBy: i % 2 === 0 ? 'Bhavesh Porva' : 'Arjun Rathod',
+      collectedByUsername: i % 2 === 0 ? 'admin' : 'staff',
       createdAt: start.toISOString(),
       updatedAt: start.toISOString(),
       notes: i % 9 === 0 ? 'Prefers covered parking' : undefined,
@@ -235,6 +237,8 @@ function seedDemoData(): void {
       vehicle: index % 3 === 0 ? undefined : plate(rnd),
       vehicleType: index % 2 === 0 ? 'car' : 'bike',
       amount: index % 2 === 0 ? 60 : 40,
+      collectedBy: index % 2 === 0 ? 'Arjun Rathod' : 'Bhavesh Porva',
+      collectedByUsername: index % 2 === 0 ? 'staff' : 'admin',
       at: at.toISOString(),
       synced: true,
     })

@@ -1,11 +1,13 @@
+import { hasUserActivation } from '@/lib/utils'
+
 let ctx: AudioContext | null = null
 
 function ensureContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined' || !hasUserActivation()) return null
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) return null
   if (!ctx) ctx = new Ctor()
-  if (ctx.state === 'suspended') void ctx.resume()
+  if (ctx.state === 'suspended') void ctx.resume().catch(() => {})
   return ctx
 }
 

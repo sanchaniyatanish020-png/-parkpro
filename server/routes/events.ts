@@ -31,7 +31,8 @@ router.get('/', (req, res) => {
     if (typeof payload === 'string' || !payload.sub || payload.scope !== 'events') {
       throw new Error('invalid ticket')
     }
-    if (!findUserById(String(payload.sub))) throw new Error('unknown user')
+    const user = findUserById(String(payload.sub))
+    if (!user || !user.active) throw new Error('unknown user')
   } catch {
     res.status(401).json({ error: 'Live updates ticket expired' })
     return

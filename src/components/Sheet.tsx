@@ -12,29 +12,51 @@ interface SheetProps {
   children: ReactNode
   footer?: ReactNode
   className?: string
+  desktopFullscreen?: boolean
 }
 
-export function Sheet({ open, onClose, title, subtitle, children, footer, className }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  footer,
+  className,
+  desktopFullscreen,
+}: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const subtitleId = useId()
   const reduced = useReducedMotion()
 
+  // Keep a stable ref to the latest onClose callback so useEffect does not re-run on parent re-renders
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!open) return
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const timer = window.setTimeout(() => panelRef.current?.focus(), 60)
+
+    // Only focus the dialog container on initial open if an input inside is not already focused
+    const timer = window.setTimeout(() => {
+      if (!panelRef.current?.contains(document.activeElement)) {
+        panelRef.current?.focus()
+      }
+    }, 60)
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', onKeyDown)
+
     return () => {
       window.clearTimeout(timer)
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, onClose])
+  }, [open])
 
   const content = (
     <AnimatePresence>
@@ -67,15 +89,21 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, classN
             }}
             className={cn(
               'absolute inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-[28px] bg-white shadow-lift outline-none dark:bg-navy-900',
+              desktopFullscreen && 'lg:inset-0 lg:h-dvh lg:max-h-none lg:max-w-none lg:rounded-none',
               className,
             )}
           >
-            <div className="flex justify-center pt-2.5" aria-hidden="true">
+            <div className={cn('flex justify-center pt-2.5', desktopFullscreen && 'lg:hidden')} aria-hidden="true">
               <span className="h-1.5 w-11 rounded-full bg-navy-200 dark:bg-white/20" />
             </div>
-            <div className="flex items-start gap-3 px-5 pb-3 pt-1.5">
+            <div
+              className={cn(
+                'flex items-start gap-3 px-5 pb-3 pt-1.5',
+                desktopFullscreen && 'lg:mx-auto lg:w-full lg:max-w-5xl lg:px-8 lg:pt-6',
+              )}
+            >
               <div className="min-w-0 flex-1">
-                <h2 id={titleId} className="text-xl font-semibold text-navy-900 dark:text-white">
+                <h2 id={titleId} className="text-xl font-semibold text-navy-900 dark:text-white lg:text-2xl">
                   {title}
                 </h2>
                 {subtitle && (
@@ -93,7 +121,14 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, classN
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">{children}</div>
+            <div
+              className={cn(
+                'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6',
+                desktopFullscreen && 'lg:mx-auto lg:w-full lg:max-w-5xl lg:px-8 lg:pb-10',
+              )}
+            >
+              {children}
+            </div>
             {footer && (
               <div className="border-t border-navy-100 bg-white/95 px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur dark:border-white/10 dark:bg-navy-900/95">
                 {footer}

@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
-import type { Role } from '../src/types'
+import type { Role, StaffPermissionKey, StaffPermissions } from '../src/types'
+import { hasPermission } from '../src/lib/permissions'
 import { env } from './env'
 import { findUserById, type UserRecord } from './repository'
 
@@ -10,6 +11,7 @@ export interface AuthUser {
   username: string
   role: Role
   name: string
+  permissions: StaffPermissions
 }
 
 export function hashPassword(password: string): string {
@@ -28,7 +30,7 @@ export function issueToken(user: UserRecord): string {
 }
 
 export function publicUser(user: UserRecord): AuthUser {
-  return { id: user.id, username: user.username, role: user.role, name: user.name }
+  return { id: user.id, username: user.username, role: user.role, name: user.name, permissions: user.permissions }
 }
 
 export const authenticate: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
@@ -42,7 +44,7 @@ export const authenticate: RequestHandler = (req: Request, res: Response, next: 
     const payload = jwt.verify(token, env.jwtSecret)
     if (typeof payload === 'string' || !payload.sub) throw new Error('invalid token')
     const user = findUserById(String(payload.sub))
-    if (!user) throw new Error('unknown user')
+    if (!user || !user.active) throw new Error('unknown user')
     req.user = publicUser(user)
     next()
   } catch {
@@ -53,6 +55,16 @@ export const authenticate: RequestHandler = (req: Request, res: Response, next: 
 export function requireRole(...roles: Role[]): RequestHandler {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
+      res.status(403).json({ error: 'You do not have permission for this action' })
+      return
+    }
+    next()
+  }
+}
+
+export function requirePermission(...anyOf: StaffPermissionKey[]): RequestHandler {
+  return (req, res, next) => {
+    if (!req.user || !anyOf.some((perm) => hasPermission(req.user!.role, req.user!.permissions, perm))) {
       res.status(403).json({ error: 'You do not have permission for this action' })
       return
     }

@@ -18,6 +18,7 @@ import {
   ScanLine,
   SearchX,
   SwitchCamera,
+  UserRoundPlus,
   X,
   XCircle,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ import { useData } from '@/state/DataContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useAuth } from '@/state/AuthContext'
 import { useToast } from '@/state/ToastContext'
+import { defaultHomeRoute } from '@/lib/permissions'
 import { Sheet } from '@/components/Sheet'
 import { Button, Segmented, TextInput } from '@/components/ui'
 import { Avatar } from '@/components/ui'
@@ -60,7 +62,8 @@ const OUTCOME_STYLE = {
 
 export default function ScanPage() {
   const { t, settings } = useSettings()
-  const { role } = useAuth()
+  const { role, permissions, can } = useAuth()
+  const canWalkIn = can('walkin')
   const { scan, online, pendingCount } = useData()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -146,7 +149,7 @@ export default function ScanPage() {
     stopStream(streamRef.current)
     streamRef.current = null
     if (window.history.length > 1) navigate(-1)
-    else navigate(role === 'owner' ? '/admin' : '/parked', { replace: true })
+    else navigate(defaultHomeRoute(role, permissions), { replace: true })
   }
 
   const toggleTorch = async () => {
@@ -377,14 +380,30 @@ export default function ScanPage() {
               {t('common.pendingSync')} · {pendingCount}
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => setManualOpen(true)}
-            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-white/95 text-base font-bold text-navy-900 active:scale-[0.99]"
-          >
-            <Keyboard className="h-5 w-5" aria-hidden="true" />
-            {t('scan.manual')}
-          </button>
+          <div className={cn('grid gap-2.5', canWalkIn ? 'grid-cols-2' : 'grid-cols-1')}>
+            {canWalkIn && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopStream(streamRef.current)
+                  streamRef.current = null
+                  navigate('/walk-in')
+                }}
+                className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1868FE] to-[#2B7BFF] text-base font-bold text-white shadow-lg shadow-blue-500/25 active:scale-[0.99]"
+              >
+                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                {t('nav.walkin')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setManualOpen(true)}
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-white/95 text-base font-bold text-navy-900 active:scale-[0.99]"
+            >
+              <Keyboard className="h-5 w-5" aria-hidden="true" />
+              {t('scan.manual')}
+            </button>
+          </div>
           <p className="text-center text-[11px] text-white/55">{t('scan.lockedNote')}</p>
         </div>
       </div>
@@ -503,10 +522,38 @@ export default function ScanPage() {
                   className="h-full rounded-full bg-white"
                 />
               </div>
+              {canWalkIn && (result.outcome === 'unknown' || result.outcome === 'expired') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopStream(streamRef.current)
+                    streamRef.current = null
+                    dismissResult()
+                    navigate('/walk-in', {
+                      state: {
+                        vehicle:
+                          result.pass?.vehicle ||
+                          (result.message && /^[A-Z0-9]{4,12}$/i.test(result.message) ? result.message : ''),
+                        phone: result.pass?.phone || '',
+                        name: result.pass?.name || '',
+                      },
+                    })
+                  }}
+                  className="mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-white font-bold text-navy-900 shadow-lift active:scale-[0.99]"
+                >
+                  <UserRoundPlus className="h-5 w-5 text-[#1868FE]" aria-hidden="true" />
+                  Add as Walk-In
+                </button>
+              )}
               <button
                 type="button"
                 onClick={dismissResult}
-                className="mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-white font-bold text-navy-900 active:scale-[0.99]"
+                className={cn(
+                  "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl font-bold active:scale-[0.99]",
+                  result.outcome === 'unknown' || result.outcome === 'expired'
+                    ? "mt-2 bg-white/20 text-white backdrop-blur hover:bg-white/30"
+                    : "mt-3 bg-white text-navy-900"
+                )}
               >
                 <ScanLine className="h-5 w-5" aria-hidden="true" />
                 {t('scan.scanAgain')}
@@ -588,7 +635,48 @@ export default function ScanPage() {
             autoFocus
           />
         )}
-        <p className="mt-4 rounded-xl bg-navy-50 px-3.5 py-3 text-xs leading-relaxed text-navy-600 dark:bg-white/[0.06] dark:text-navy-200">
+        {lookupError ? (
+          <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-500/25 dark:bg-blue-500/10">
+            <p className="text-xs font-semibold text-blue-950 dark:text-blue-200">
+              Not found in registered passes. Add as walk-in customer?
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setManualOpen(false)
+                stopStream(streamRef.current)
+                streamRef.current = null
+                navigate('/walk-in', {
+                  state: {
+                    vehicle: tab === 'vehicle' ? query : '',
+                    phone: tab === 'phone' ? query : '',
+                  },
+                })
+              }}
+              className="mt-2.5 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#1868FE] text-sm font-bold text-white shadow-sm transition-transform active:scale-[0.99]"
+            >
+              <UserRoundPlus className="h-4 w-4" aria-hidden="true" />
+              Add as Walk-in entry
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-navy-50 px-3.5 py-2.5 text-xs text-navy-600 dark:bg-white/[0.06] dark:text-navy-200">
+            <span>Customer without monthly pass?</span>
+            <button
+              type="button"
+              onClick={() => {
+                setManualOpen(false)
+                stopStream(streamRef.current)
+                streamRef.current = null
+                navigate('/walk-in')
+              }}
+              className="font-bold text-[#1868FE] hover:underline dark:text-blue-400"
+            >
+              Add walk-in →
+            </button>
+          </div>
+        )}
+        <p className="mt-3 rounded-xl bg-navy-50/60 px-3.5 py-2 text-xs leading-relaxed text-navy-500 dark:bg-white/[0.03] dark:text-navy-300">
           {t('scan.manualFallback')}
         </p>
       </Sheet>

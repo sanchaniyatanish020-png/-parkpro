@@ -13,7 +13,8 @@ import {
   Ticket,
   Trash2,
 } from 'lucide-react'
-import type { PayMode, PlanId } from '@/types'
+import type { PayMode } from '@/types'
+import { useAuth } from '@/state/AuthContext'
 import { useData } from '@/state/DataContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
@@ -23,22 +24,20 @@ import { PassCard } from '@/components/PassCard'
 import { copyText, openWhatsApp, shareImage } from '@/lib/share'
 import { HAPTIC, vibrate } from '@/lib/haptics'
 import {
-  addDays,
-  addMonths,
   cn,
   daysLeft,
   formatDate,
   formatMoney,
   formatPlate,
   passStatus,
-  PLAN_MONTHS,
-  PLAN_PRICE,
-  PLANS,
   planLabel,
+  renewMonthEndAndPrice,
 } from '@/lib/utils'
 
 export default function PassDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { can } = useAuth()
+  const canManagePasses = can('managePasses')
   const { passes, ready, renewPass, deletePass } = useData()
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
@@ -49,7 +48,6 @@ export default function PassDetailPage() {
   const [busy, setBusy] = useState<'share' | 'download' | null>(null)
 
   const [renewOpen, setRenewOpen] = useState(false)
-  const [plan, setPlan] = useState<PlanId>('monthly')
   const [payment, setPayment] = useState<PayMode>('cash')
   const [saving, setSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -67,14 +65,11 @@ export default function PassDetailPage() {
 
   const preview = useMemo(() => {
     if (!pass) return null
-    const base = new Date(Math.max(new Date(pass.endDate).getTime(), Date.now()))
-    const end = plan === 'daily' ? addDays(base, 1) : addMonths(base, PLAN_MONTHS[plan])
-    return { end, price: PLAN_PRICE[plan] }
-  }, [pass, plan])
+    return renewMonthEndAndPrice(pass.endDate, new Date(), settings.monthlyRate)
+  }, [pass, settings.monthlyRate])
 
   const openRenew = () => {
     if (!pass) return
-    setPlan(pass.plan)
     setPayment('cash')
     setRenewOpen(true)
   }
@@ -131,7 +126,7 @@ export default function PassDetailPage() {
     if (!pass) return
     setSaving(true)
     try {
-      const updated = await renewPass(pass, plan, payment)
+      const updated = await renewPass(pass, 'monthly', payment)
       vibrate(HAPTIC.success, settings.haptics)
       toast({ message: t('passes.renewed', { date: formatDate(updated.endDate, lang) }), tone: 'success' })
       setRenewOpen(false)
@@ -302,19 +297,21 @@ export default function PassDetailPage() {
             </div>
           )}
 
-          <div className="mt-4 flex gap-2">
-            <Button variant="navy" full icon={RefreshCw} onClick={openRenew} className="min-h-[48px]">
-              {t('passes.renew')}
-            </Button>
-            <Button
-              variant="ghost"
-              icon={Trash2}
-              onClick={() => setDeleteOpen(true)}
-              className="min-h-[48px] shrink-0 px-4 text-[#B91C1C] dark:text-[#FCA5A5]"
-            >
-              {t('action.delete')}
-            </Button>
-          </div>
+          {canManagePasses && (
+            <div className="mt-4 flex gap-2">
+              <Button variant="navy" full icon={RefreshCw} onClick={openRenew} className="min-h-[48px]">
+                {t('passes.renew')}
+              </Button>
+              <Button
+                variant="ghost"
+                icon={Trash2}
+                onClick={() => setDeleteOpen(true)}
+                className="min-h-[48px] shrink-0 px-4 text-[#B91C1C] dark:text-[#FCA5A5]"
+              >
+                {t('action.delete')}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -348,30 +345,11 @@ export default function PassDetailPage() {
 
           <div>
             <p className="label">{t('passes.plan')}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {PLANS.map((option) => {
-                const active = plan === option
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setPlan(option)}
-                    aria-pressed={active}
-                    className={cn(
-                      'flex min-h-[58px] flex-col items-start justify-center rounded-xl border-2 px-3 py-2 text-left transition-colors',
-                      option === 'yearly' && 'col-span-2',
-                      active
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10'
-                        : 'border-navy-100 bg-white hover:border-navy-200 dark:border-white/10 dark:bg-white/5',
-                    )}
-                  >
-                    <span className="text-sm font-semibold text-navy-900 dark:text-white">{t(`plan_${option}`)}</span>
-                    <span className="font-mono text-xs text-navy-500 dark:text-navy-300">
-                      {formatMoney(PLAN_PRICE[option], lang)}
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="flex min-h-[58px] flex-col items-start justify-center rounded-xl border-2 border-amber-500 bg-amber-50 px-3 py-2 dark:bg-amber-500/10">
+              <span className="text-sm font-semibold text-navy-900 dark:text-white">{t('plan_monthly')}</span>
+              <span className="font-mono text-xs text-navy-500 dark:text-navy-300">
+                {preview ? formatMoney(preview.price, lang) : '—'} · {t('passes.proratedHint')}
+              </span>
             </div>
           </div>
 

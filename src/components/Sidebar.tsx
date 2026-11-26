@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart3, CarFront, History, Home, LogOut, ScanLine, ScrollText, Settings2, Ticket, UserRoundPlus, Wifi, CloudOff } from 'lucide-react'
+import { BarChart3, CarFront, History, Home, LogOut, ScanLine, Settings2, Ticket, UserRoundPlus, Users, Wifi, CloudOff } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { Avatar } from '@/components/ui'
@@ -18,56 +18,61 @@ interface NavItem {
 
 export function Sidebar() {
   const { t, settings } = useSettings()
-  const { role, signOut } = useAuth()
+  const { role, can, signOut } = useAuth()
   const { online, pendingCount, syncNow, syncing, stats } = useData()
 
-  const main: NavItem[] =
-    role === 'owner'
-      ? [
-          { to: '/admin', icon: Home, label: t('nav.home'), end: true },
-          { to: '/admin/passes', icon: Ticket, label: t('nav.passes') },
-          { to: '/admin/reports', icon: BarChart3, label: t('nav.reports') },
-          { to: '/admin/logs', icon: ScrollText, label: t('nav.logs'), badge: pendingCount },
-        ]
-      : [
-          { to: '/scan', icon: ScanLine, label: t('nav.scan') },
-          { to: '/parked', icon: CarFront, label: t('nav.parked') },
-          { to: '/walk-in', icon: UserRoundPlus, label: t('nav.walkin') },
-          { to: '/history', icon: History, label: t('nav.history'), badge: pendingCount },
-        ]
+  const adminRaw: (NavItem | null)[] = [
+    can('dashboard') || can('revenue') ? { to: '/admin', icon: Home, label: t('nav.home'), end: true } : null,
+    can('passes') ? { to: '/admin/passes', icon: Ticket, label: t('nav.passes') } : null,
+    can('reports') ? { to: '/admin/reports', icon: BarChart3, label: t('nav.reports') } : null,
+    can('employees') ? { to: '/admin/employees', icon: Users, label: t('nav.employees') } : null,
+  ]
+  const adminNav = adminRaw.filter((item): item is NavItem => item !== null)
 
-  const gateTools: NavItem[] =
-    role === 'owner'
-      ? [
-          { to: '/scan', icon: ScanLine, label: t('nav.scan') },
-          { to: '/parked', icon: CarFront, label: t('nav.parked') },
-          { to: '/walk-in', icon: UserRoundPlus, label: t('nav.walkin') },
-          { to: '/history', icon: History, label: t('nav.history') },
-        ]
-      : []
+  const gateRaw: (NavItem | null)[] = [
+    can('scan') ? { to: '/scan', icon: ScanLine, label: t('nav.scan') } : null,
+    can('parked') ? { to: '/parked', icon: CarFront, label: t('nav.parked') } : null,
+    can('walkin') ? { to: '/walk-in', icon: UserRoundPlus, label: t('nav.walkin') } : null,
+    can('history')
+      ? { to: '/history', icon: History, label: t('nav.history'), badge: role === 'owner' ? undefined : pendingCount }
+      : null,
+  ]
+  const gateNav = gateRaw.filter((item): item is NavItem => item !== null)
+
+  const staffPrimary = gateNav.length > 0 ? gateNav : adminNav
+  const staffSecondary = gateNav.length > 0 ? adminNav : []
+
+  const main = role === 'owner' ? adminNav : staffPrimary
+  const mainLabel = role === 'owner' || gateNav.length === 0 ? t('panel.admin') : t('panel.scanner')
+  const secondary = role === 'owner' ? gateNav : staffSecondary
+  const secondaryLabel = role === 'owner' ? t('panel.scanner') : t('panel.admin')
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[268px] flex-col mesh-navy text-white lg:flex">
       <div className="flex h-[76px] shrink-0 items-center px-5">
-        <Logo size={34} wordmarkClass="text-white" />
+        <Logo size={34} invert wordmarkClass="text-white text-xl" />
       </div>
 
-      <div className="px-5 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
-        {role === 'owner' ? t('panel.admin') : t('panel.scanner')}
-      </div>
-      <nav aria-label="Main" className="space-y-1 px-3">
-        {main.map((item) => (
-          <SidebarLink key={item.to} item={item} />
-        ))}
-      </nav>
+      {main.length > 0 && (
+        <>
+          <div className="px-5 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
+            {mainLabel}
+          </div>
+          <nav aria-label="Main" className="space-y-1 px-3">
+            {main.map((item) => (
+              <SidebarLink key={item.to} item={item} />
+            ))}
+          </nav>
+        </>
+      )}
 
-      {gateTools.length > 0 && (
+      {secondary.length > 0 && (
         <>
           <div className="px-5 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
-            {t('panel.scanner')}
+            {secondaryLabel}
           </div>
-          <nav aria-label="Gate tools" className="space-y-1 px-3">
-            {gateTools.map((item) => (
+          <nav aria-label="Additional tools" className="space-y-1 px-3">
+            {secondary.map((item) => (
               <SidebarLink key={item.to} item={item} />
             ))}
           </nav>

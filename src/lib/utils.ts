@@ -143,7 +143,7 @@ export function planLabel(plan: PlanId, t: (key: string) => string): string {
   return t(`plan_${plan}`)
 }
 
-export const PLANS: PlanId[] = ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly']
+export const PLANS: PlanId[] = ['monthly']
 
 export const PLAN_MONTHS: Record<PlanId, number> = {
   daily: 0,
@@ -153,18 +153,67 @@ export const PLAN_MONTHS: Record<PlanId, number> = {
   yearly: 12,
 }
 
+/** Full monthly price (used as the base for pro-rating). */
+export const MONTHLY_RATE = 1800
+
 export const PLAN_PRICE: Record<PlanId, number> = {
   daily: 120,
-  monthly: 1800,
+  monthly: MONTHLY_RATE,
   quarterly: 4800,
   half_yearly: 8500,
   yearly: 15000,
 }
 
+/**
+ * Calculate the end-of-month expiry date.
+ * Returns the last day of the start date's month at 23:59:59.999,
+ * so as soon as the 1st day of the next month starts (00:00), the pass is expired.
+ */
+export function monthEndDate(start: string | Date): Date {
+  const d = new Date(start)
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
+}
+
+/**
+ * Pro-rate the monthly price based on how many days remain in the month.
+ * E.g. if the month has 30 days and the pass starts on day 26,
+ * remaining = 5 days → price = round(1800 * 5 / 30) = 300.
+ * If the pass starts on day 1, full price is charged.
+ */
+export function proratedMonthlyPrice(start: string | Date, monthlyRate: number = MONTHLY_RATE): number {
+  const d = new Date(start)
+  const totalDays = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() // days in month
+  const dayOfMonth = d.getDate()
+  const remaining = totalDays - dayOfMonth + 1 // include start day
+  if (remaining >= totalDays) return monthlyRate
+  return Math.round((monthlyRate * remaining) / totalDays)
+}
+
+/**
+ * Calculate the new expiry date and price when renewing a monthly pass.
+ * - If already expired, renews from today until the end of the current month (pro-rated).
+ * - If still active, extends to the end of the next month (full monthly rate).
+ */
+export function renewMonthEndAndPrice(
+  currentEndDate: string,
+  now: Date = new Date(),
+  monthlyRate: number = MONTHLY_RATE,
+): { end: Date; price: number } {
+  if (endOfDay(currentEndDate).getTime() < now.getTime()) {
+    return { end: monthEndDate(now), price: proratedMonthlyPrice(now, monthlyRate) }
+  }
+  const curEnd = new Date(currentEndDate)
+  const nextMonthStart = new Date(curEnd.getFullYear(), curEnd.getMonth() + 1, 1)
+  return { end: monthEndDate(nextMonthStart), price: monthlyRate }
+}
+
 export function planEndDate(plan: PlanId, start: string): string {
   const date = new Date(start)
-  if (plan === 'daily') return addDays(date, 1).toISOString()
-  return addMonths(date, PLAN_MONTHS[plan]).toISOString()
+  if (plan === 'daily') {
+    return addDays(date, 1).toISOString()
+  }
+  // All non-daily plans expire on the 1st of the next month
+  return monthEndDate(date).toISOString()
 }
 
 export function sleep(ms: number) {
@@ -214,4 +263,10 @@ export function isIos(): boolean {
 export function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
+}
+
+export function hasUserActivation(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const nav = navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }
+  return nav.userActivation ? nav.userActivation.hasBeenActive : true
 }

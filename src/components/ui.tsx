@@ -1,5 +1,5 @@
 import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
-import { CheckCircle2, Clock3, Loader2, XCircle, type LucideIcon } from 'lucide-react'
+import { CarFront, CheckCircle2, Clock3, Loader2, Phone, XCircle, type LucideIcon } from 'lucide-react'
 import { cn, initials, passStatus } from '@/lib/utils'
 import type { Pass, PassStatus } from '@/types'
 import { useSettings } from '@/state/SettingsContext'
@@ -232,7 +232,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 })
 
 export const PhoneInput = forwardRef<HTMLInputElement, Omit<TextInputProps, 'inputMode' | 'type'>>(function PhoneInput(
-  { label, icon, onChange, value, ...rest },
+  { label, icon = Phone, onChange, value, ...rest },
   ref,
 ) {
   return (
@@ -257,7 +257,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, Omit<TextInputProps, 'inp
 })
 
 export const PlateInput = forwardRef<HTMLInputElement, Omit<TextInputProps, 'onChange'> & { onValueChange: (value: string) => void }>(
-  function PlateInput({ label, onValueChange, value, error, hint, ...rest }, ref) {
+  function PlateInput({ label, onValueChange, value, error, hint, icon = CarFront, ...rest }, ref) {
     return (
       <TextInput
         ref={ref}
@@ -265,6 +265,7 @@ export const PlateInput = forwardRef<HTMLInputElement, Omit<TextInputProps, 'onC
         value={value}
         error={error}
         hint={hint}
+        icon={icon}
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}

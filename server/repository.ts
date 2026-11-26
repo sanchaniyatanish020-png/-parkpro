@@ -1,5 +1,6 @@
 import type { StatementSync } from 'node:sqlite'
-import type { AuditLog, LogKind, Pass, ScanEvent, WalkIn } from '../src/types'
+import type { AuditLog, LogKind, Pass, ScanEvent, StaffPermissions, WalkIn } from '../src/types'
+import { resolvePermissions } from '../src/lib/permissions'
 import { normalizePlate } from '../src/lib/utils'
 import { db } from './db'
 
@@ -18,6 +19,7 @@ function stmt(sql: string): StatementSync {
 export interface SiteRecord {
   name: string
   capacity: number
+  monthlyRate: number
 }
 
 export interface UserRecord {
@@ -26,6 +28,31 @@ export interface UserRecord {
   passwordHash: string
   role: 'owner' | 'staff'
   name: string
+  active: boolean
+  permissions: StaffPermissions
+  hourlyRate: number
+  monthlySalary: number
+  createdAt: string
+}
+
+export interface EmployeeSessionRecord {
+  id: string
+  userId: string
+  loginAt: string
+  logoutAt?: string
+  notes?: string
+}
+
+export interface EmployeeLeaveRecord {
+  id: string
+  userId: string
+  leaveDate: string
+  leaveType: 'full' | 'half'
+  status: 'pending' | 'approved' | 'rejected'
+  reason?: string
+  createdBy?: string
+  reviewedBy?: string
+  reviewedAt?: string
   createdAt: string
 }
 
@@ -43,6 +70,9 @@ function toPass(row: Row): Pass {
     startDate: String(row.start_date),
     endDate: String(row.end_date),
     amount: Number(row.amount),
+    paymentMode: (row.payment_mode as Pass['paymentMode']) || 'cash',
+    collectedBy: row.collected_by == null ? undefined : String(row.collected_by),
+    collectedByUsername: row.collected_by_username == null ? undefined : String(row.collected_by_username),
     slot: row.slot == null ? undefined : String(row.slot),
     photo: row.photo == null ? undefined : String(row.photo),
     notes: row.notes == null ? undefined : String(row.notes),
@@ -77,6 +107,9 @@ function toWalkIn(row: Row): WalkIn {
     vehicleType: row.vehicle_type as WalkIn['vehicleType'],
     photo: row.photo == null ? undefined : String(row.photo),
     amount: Number(row.amount),
+    paymentMode: (row.payment_mode as WalkIn['paymentMode']) || 'cash',
+    collectedBy: row.collected_by == null ? undefined : String(row.collected_by),
+    collectedByUsername: row.collected_by_username == null ? undefined : String(row.collected_by_username),
     at: String(row.at),
     synced: Boolean(Number(row.synced)),
   }
@@ -115,13 +148,15 @@ export function getPass(id: string): Pass | null {
 export function upsertPass(pass: Pass): void {
   stmt(
     `INSERT INTO passes (id, token, name, phone, vehicle, vehicle_type, plan, start_date, end_date,
-       amount, slot, photo, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       amount, payment_mode, collected_by, collected_by_username, slot, photo, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        token = excluded.token, name = excluded.name, phone = excluded.phone, vehicle = excluded.vehicle,
        vehicle_type = excluded.vehicle_type, plan = excluded.plan, start_date = excluded.start_date,
-       end_date = excluded.end_date, amount = excluded.amount, slot = excluded.slot, photo = excluded.photo,
-       notes = excluded.notes, updated_at = excluded.updated_at`,
+       end_date = excluded.end_date, amount = excluded.amount, payment_mode = excluded.payment_mode,
+       collected_by = COALESCE(excluded.collected_by, passes.collected_by),
+       collected_by_username = COALESCE(excluded.collected_by_username, passes.collected_by_username),
+       slot = excluded.slot, photo = excluded.photo, notes = excluded.notes, updated_at = excluded.updated_at`,
   ).run(
     pass.id,
     pass.token,
@@ -133,6 +168,9 @@ export function upsertPass(pass: Pass): void {
     pass.startDate,
     pass.endDate,
     pass.amount,
+    pass.paymentMode ?? 'cash',
+    pass.collectedBy ?? null,
+    pass.collectedByUsername ?? null,
     pass.slot ?? null,
     pass.photo ?? null,
     pass.notes ?? null,
@@ -232,9 +270,13 @@ export function listWalkIns(): WalkIn[] {
 
 export function upsertWalkIn(entry: WalkIn): void {
   stmt(
-    `INSERT INTO walkins (id, name, phone, vehicle, vehicle_type, photo, amount, at, synced)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET synced = excluded.synced`,
+    `INSERT INTO walkins (id, name, phone, vehicle, vehicle_type, photo, amount, payment_mode, collected_by, collected_by_username, at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       synced = excluded.synced,
+       payment_mode = excluded.payment_mode,
+       collected_by = COALESCE(excluded.collected_by, walkins.collected_by),
+       collected_by_username = COALESCE(excluded.collected_by_username, walkins.collected_by_username)`,
   ).run(
     entry.id,
     entry.name,
@@ -243,6 +285,9 @@ export function upsertWalkIn(entry: WalkIn): void {
     entry.vehicleType,
     entry.photo ?? null,
     entry.amount,
+    entry.paymentMode ?? 'cash',
+    entry.collectedBy ?? null,
+    entry.collectedByUsername ?? null,
     entry.at,
     entry.synced ? 1 : 0,
   )
@@ -268,9 +313,13 @@ export function clearLogs(): void {
 /* ----------------------------------- site ---------------------------------- */
 
 export function getSite(): SiteRecord {
-  const row = stmt('SELECT name, capacity FROM site WHERE id = 1').get() as Row | undefined
-  if (!row) return { name: 'Riverfront Parking', capacity: 120 }
-  return { name: String(row.name), capacity: Number(row.capacity) }
+  const row = stmt('SELECT name, capacity, monthly_rate FROM site WHERE id = 1').get() as Row | undefined
+  if (!row) return { name: 'Riverfront Parking', capacity: 120, monthlyRate: 1800 }
+  return {
+    name: String(row.name),
+    capacity: Number(row.capacity),
+    monthlyRate: Number(row.monthly_rate ?? 1800) || 1800,
+  }
 }
 
 export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
@@ -278,11 +327,12 @@ export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
   const next: SiteRecord = {
     name: patch.name?.trim() || current.name,
     capacity: patch.capacity && patch.capacity > 0 ? Math.round(patch.capacity) : current.capacity,
+    monthlyRate: patch.monthlyRate && patch.monthlyRate > 0 ? Math.round(patch.monthlyRate) : current.monthlyRate,
   }
   stmt(
-    `INSERT INTO site (id, name, capacity, updated_at) VALUES (1, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, capacity = excluded.capacity, updated_at = excluded.updated_at`,
-  ).run(next.name, next.capacity, new Date().toISOString())
+    `INSERT INTO site (id, name, capacity, monthly_rate, updated_at) VALUES (1, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, capacity = excluded.capacity, monthly_rate = excluded.monthly_rate, updated_at = excluded.updated_at`,
+  ).run(next.name, next.capacity, next.monthlyRate, new Date().toISOString())
   return next
 }
 
@@ -311,29 +361,208 @@ export function findUserById(id: string): UserRecord | null {
 }
 
 function toUser(row: Row): UserRecord {
+  const role = row.role as UserRecord['role']
+  let parsedPerms: unknown
+  if (row.permissions) {
+    try {
+      parsedPerms = JSON.parse(String(row.permissions))
+    } catch {
+      parsedPerms = undefined
+    }
+  }
   return {
     id: String(row.id),
     username: String(row.username),
     passwordHash: String(row.password_hash),
-    role: row.role as UserRecord['role'],
+    role,
     name: String(row.name),
+    active: row.active == null ? true : Boolean(Number(row.active)),
+    permissions: resolvePermissions(role, parsedPerms),
+    hourlyRate: row.hourly_rate == null ? 0 : Number(row.hourly_rate),
+    monthlySalary: row.monthly_salary == null ? 0 : Number(row.monthly_salary),
     createdAt: String(row.created_at),
   }
 }
 
+export function listStaffUsers(): UserRecord[] {
+  return (stmt("SELECT * FROM users WHERE role = 'staff' ORDER BY active DESC, created_at DESC").all() as Row[]).map(toUser)
+}
+
 export function insertUser(user: UserRecord): void {
-  stmt('INSERT INTO users (id, username, password_hash, role, name, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+  stmt(
+    'INSERT INTO users (id, username, password_hash, role, name, active, permissions, hourly_rate, monthly_salary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(
     user.id,
     user.username,
     user.passwordHash,
     user.role,
     user.name,
+    user.active ? 1 : 0,
+    JSON.stringify(user.permissions),
+    user.hourlyRate ?? 0,
+    user.monthlySalary ?? 0,
     user.createdAt,
   )
 }
 
+export function setUserActive(id: string, active: boolean): UserRecord | null {
+  const result = stmt("UPDATE users SET active = ? WHERE id = ? AND role = 'staff'").run(active ? 1 : 0, id)
+  if (Number(result.changes) === 0) return null
+  return findUserById(id)
+}
+
+export function updateUserPermissions(id: string, permissions: StaffPermissions): UserRecord | null {
+  const result = stmt("UPDATE users SET permissions = ? WHERE id = ? AND role = 'staff'").run(
+    JSON.stringify(permissions),
+    id,
+  )
+  if (Number(result.changes) === 0) return null
+  return findUserById(id)
+}
+
+export function updateUserHourlyRate(id: string, hourlyRate: number): UserRecord | null {
+  const result = stmt("UPDATE users SET hourly_rate = ? WHERE id = ? AND role = 'staff'").run(hourlyRate, id)
+  if (Number(result.changes) === 0) return null
+  return findUserById(id)
+}
+
+export function updateUserMonthlySalary(id: string, monthlySalary: number): UserRecord | null {
+  const result = stmt("UPDATE users SET monthly_salary = ? WHERE id = ? AND role = 'staff'").run(monthlySalary, id)
+  if (Number(result.changes) === 0) return null
+  return findUserById(id)
+}
+
 export function updateUserPassword(id: string, passwordHash: string): void {
   stmt('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id)
+}
+
+/* ---------------------------- employee attendance -------------------------- */
+
+function toSession(row: Row): EmployeeSessionRecord {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    loginAt: String(row.login_at),
+    logoutAt: row.logout_at == null ? undefined : String(row.logout_at),
+    notes: row.notes == null ? undefined : String(row.notes),
+  }
+}
+
+function toLeave(row: Row): EmployeeLeaveRecord {
+  const status = row.status === 'pending' || row.status === 'rejected' ? row.status : 'approved'
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    leaveDate: String(row.leave_date),
+    leaveType: row.leave_type === 'half' ? 'half' : 'full',
+    status,
+    reason: row.reason == null ? undefined : String(row.reason),
+    createdBy: row.created_by == null ? undefined : String(row.created_by),
+    reviewedBy: row.reviewed_by == null ? undefined : String(row.reviewed_by),
+    reviewedAt: row.reviewed_at == null ? undefined : String(row.reviewed_at),
+    createdAt: String(row.created_at),
+  }
+}
+
+export function recordEmployeeLogin(userId: string, at = new Date().toISOString()): EmployeeSessionRecord {
+  stmt('UPDATE employee_sessions SET logout_at = ? WHERE user_id = ? AND logout_at IS NULL').run(at, userId)
+  const id = `es_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  stmt('INSERT INTO employee_sessions (id, user_id, login_at) VALUES (?, ?, ?)').run(id, userId, at)
+  return { id, userId, loginAt: at }
+}
+
+export function recordEmployeeLogout(userId: string, at = new Date().toISOString()): void {
+  const open = stmt(
+    'SELECT id FROM employee_sessions WHERE user_id = ? AND logout_at IS NULL ORDER BY login_at DESC LIMIT 1',
+  ).get(userId) as Row | undefined
+  if (open) {
+    stmt('UPDATE employee_sessions SET logout_at = ? WHERE id = ?').run(at, String(open.id))
+  }
+}
+
+export function listEmployeeSessions(userId: string): EmployeeSessionRecord[] {
+  return (
+    stmt('SELECT * FROM employee_sessions WHERE user_id = ? ORDER BY login_at DESC').all(userId) as Row[]
+  ).map(toSession)
+}
+
+export function listAllEmployeeSessions(): EmployeeSessionRecord[] {
+  return (stmt('SELECT * FROM employee_sessions ORDER BY login_at DESC').all() as Row[]).map(toSession)
+}
+
+export function updateEmployeeSessionLogout(
+  sessionId: string,
+  userId: string,
+  logoutAt: string,
+): EmployeeSessionRecord | null {
+  const result = stmt('UPDATE employee_sessions SET logout_at = ? WHERE id = ? AND user_id = ?').run(
+    logoutAt,
+    sessionId,
+    userId,
+  )
+  if (Number(result.changes) === 0) return null
+  const row = stmt('SELECT * FROM employee_sessions WHERE id = ?').get(sessionId) as Row | undefined
+  return row ? toSession(row) : null
+}
+
+export function listEmployeeLeaves(userId: string): EmployeeLeaveRecord[] {
+  return (
+    stmt('SELECT * FROM employee_leaves WHERE user_id = ? ORDER BY leave_date DESC').all(userId) as Row[]
+  ).map(toLeave)
+}
+
+export function listAllEmployeeLeaves(): EmployeeLeaveRecord[] {
+  return (stmt('SELECT * FROM employee_leaves ORDER BY leave_date DESC').all() as Row[]).map(toLeave)
+}
+
+export function upsertEmployeeLeave(leave: EmployeeLeaveRecord): EmployeeLeaveRecord {
+  stmt(
+    `INSERT INTO employee_leaves (id, user_id, leave_date, leave_type, status, reason, created_by, reviewed_by, reviewed_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, leave_date) DO UPDATE SET
+       leave_type = excluded.leave_type,
+       status = excluded.status,
+       reason = excluded.reason,
+       created_by = excluded.created_by,
+       reviewed_by = excluded.reviewed_by,
+       reviewed_at = excluded.reviewed_at`,
+  ).run(
+    leave.id,
+    leave.userId,
+    leave.leaveDate,
+    leave.leaveType,
+    leave.status,
+    leave.reason ?? null,
+    leave.createdBy ?? null,
+    leave.reviewedBy ?? null,
+    leave.reviewedAt ?? null,
+    leave.createdAt,
+  )
+  const row = stmt('SELECT * FROM employee_leaves WHERE user_id = ? AND leave_date = ?').get(
+    leave.userId,
+    leave.leaveDate,
+  ) as Row
+  return toLeave(row)
+}
+
+export function updateEmployeeLeaveStatus(
+  leaveId: string,
+  userId: string,
+  status: 'approved' | 'rejected',
+  reviewedBy: string,
+): EmployeeLeaveRecord | null {
+  const reviewedAt = new Date().toISOString()
+  const result = stmt(
+    'UPDATE employee_leaves SET status = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ? AND user_id = ?',
+  ).run(status, reviewedBy, reviewedAt, leaveId, userId)
+  if (Number(result.changes) === 0) return null
+  const row = stmt('SELECT * FROM employee_leaves WHERE id = ?').get(leaveId) as Row | undefined
+  return row ? toLeave(row) : null
+}
+
+export function deleteEmployeeLeave(leaveId: string, userId: string): boolean {
+  const result = stmt('DELETE FROM employee_leaves WHERE id = ? AND user_id = ?').run(leaveId, userId)
+  return Number(result.changes) > 0
 }
 
 /* ---------------------------------- reset ---------------------------------- */

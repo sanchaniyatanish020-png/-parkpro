@@ -1,25 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Eye, EyeOff, Fingerprint, LockKeyhole, LogOut, ShieldAlert } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole, LogOut, ShieldAlert } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/state/AuthContext'
 import { useSettings } from '@/state/SettingsContext'
-import { biometricAvailable } from '@/lib/biometric'
 import { vibrate, HAPTIC } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
 
 export function LockScreen() {
-  const { locked, unlock, unlockBiometric, signOut, username, role } = useAuth()
+  const { locked, unlock, signOut, username, role } = useAuth()
   const { t, settings } = useSettings()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [bio, setBio] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    void biometricAvailable().then(setBio)
-  }, [])
 
   useEffect(() => {
     if (!locked) {
@@ -48,17 +41,10 @@ export function LockScreen() {
     }
   }
 
-  const tryBiometric = async () => {
-    setBusy(true)
-    const ok = await unlockBiometric()
-    setBusy(false)
-    if (!ok) setError(t('auth.biometricFailed'))
-  }
-
   return (
     <div className="fixed inset-0 z-[100] flex flex-col mesh-navy px-5 pb-[max(env(safe-area-inset-bottom),20px)] pt-[max(env(safe-area-inset-top),24px)] text-white">
       <div className="flex items-center justify-between">
-        <Logo size={32} wordmarkClass="text-white text-lg" />
+        <Logo size={32} invert wordmarkClass="text-white text-lg" />
         <button
           type="button"
           onClick={signOut}
@@ -118,18 +104,6 @@ export function LockScreen() {
           <Button type="submit" full className="min-h-[50px] text-base font-bold shadow-lg">
             {t('auth.unlock')}
           </Button>
-
-          {bio && (
-            <button
-              type="button"
-              onClick={() => void tryBiometric()}
-              disabled={busy}
-              className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] text-sm font-semibold text-navy-100 hover:bg-white/10 disabled:opacity-50"
-            >
-              <Fingerprint className="h-5 w-5 text-[#38BDF8]" aria-hidden="true" />
-              {t('auth.biometric')}
-            </button>
-          )}
         </form>
       </div>
 

@@ -21,7 +21,7 @@ export default function RevenueChart({ data }: { data: RevenuePoint[] }) {
   const axisColor = dark ? '#9FB3CE' : '#6B7C93'
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <AreaChart data={data} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
         <defs>
           <linearGradient id="adminRevenue" x1="0" y1="0" x2="0" y2="1">

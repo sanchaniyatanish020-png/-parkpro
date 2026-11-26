@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { Direction, ScanEvent, ScanOutcome } from '../../src/types'
 import { daysLeft, passStatus, uid } from '../../src/lib/utils'
-import { authenticate } from '../auth'
+import { authenticate, requirePermission } from '../auth'
 import { parseScanBody } from '../parsers'
 import { findPassByQuery, lastRealScan, listScans, upsertScan } from '../repository'
 import { asObject, oneOf, str } from '../validate'
@@ -9,12 +9,12 @@ import { asObject, oneOf, str } from '../validate'
 const router = Router()
 router.use(authenticate)
 
-router.get('/', (_req, res) => {
+router.get('/', requirePermission('history', 'parked', 'scan', 'dashboard', 'revenue', 'reports'), (_req, res) => {
   res.json({ scans: listScans() })
 })
 
 /** Gate decision: looks up the pass, alternates IN/OUT and records the event. */
-router.post('/scan', (req, res) => {
+router.post('/scan', requirePermission('scan'), (req, res) => {
   const body = asObject(req.body)
   const text = str(body.text, 'Pass code', { max: 512 })
   const source = oneOf(body.source, 'Source', ['camera', 'manual'] as const)
@@ -62,7 +62,7 @@ router.post('/scan', (req, res) => {
 })
 
 /** Records an event produced while the device was offline. */
-router.post('/', (req, res) => {
+router.post('/', requirePermission('scan'), (req, res) => {
   const event = parseScanBody(req.body)
   upsertScan(event)
   res.status(201).json({ scan: event })

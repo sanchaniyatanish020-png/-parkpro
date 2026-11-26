@@ -5,7 +5,7 @@ import {
   Check,
   ChevronRight,
   CloudOff,
-  Fingerprint,
+  IndianRupee,
   KeyRound,
   Languages,
   LogOut,
@@ -15,10 +15,10 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
-  Smartphone,
   Sun,
   Type,
   UserRound,
+  UsersRound,
   Wifi,
   WifiOff,
 } from 'lucide-react'
@@ -29,8 +29,9 @@ import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
 import { Avatar, Badge, Button, Segmented, SelectInput, TextInput, Toggle } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
+import { StaffTeamSection } from '@/components/StaffTeamSection'
+import { StaffLeaveSection } from '@/components/StaffLeaveSection'
 import { LANG_OPTIONS } from '@/lib/i18n'
-import { biometricAvailable, enrollBiometric, forgetBiometric, hasBiometricEnrolled } from '@/lib/biometric'
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -48,15 +49,14 @@ const AUTO_LOCK = [
 
 export default function SettingsPage() {
   const { settings, update, t, lang } = useSettings()
-  const { role, signOut, changePassword } = useAuth()
+  const { role, can, signOut, changePassword } = useAuth()
   const { stats, pendingCount, lastSync, online, syncing, syncNow, reset, updateSite } = useData()
   const { toast } = useToast()
   const navigate = useNavigate()
   const isOwner = role === 'owner'
+  const canEditSite = can('siteSettings')
 
   const [permission, setPermission] = useState(() => notificationPermission())
-  const [bioReady, setBioReady] = useState(false)
-  const [bioEnrolled, setBioEnrolled] = useState(() => hasBiometricEnrolled(role))
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -66,10 +66,6 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
-
-  useEffect(() => {
-    void biometricAvailable().then(setBioReady)
-  }, [])
 
   useEffect(() => {
     const sync = () => setPermission(notificationPermission())
@@ -92,21 +88,6 @@ export default function SettingsPage() {
   const testNotification = async () => {
     await showLocalNotification(t('notif.testTitle'), t('notif.testBody'), 'parkpro-test')
     toast({ message: t('settings.testNotifSent'), tone: 'success' })
-  }
-
-  const handleBiometric = async (value: boolean) => {
-    if (!value) {
-      forgetBiometric(role)
-      setBioEnrolled(false)
-      return
-    }
-    const ok = await enrollBiometric(role)
-    if (ok) {
-      setBioEnrolled(true)
-      toast({ message: t('settings.biometric'), tone: 'success' })
-    } else {
-      toast({ message: t('auth.biometricUnavailable'), tone: 'warning' })
-    }
   }
 
   const openChangePin = () => {
@@ -202,8 +183,8 @@ export default function SettingsPage() {
             label={t('settings.siteName')}
             value={settings.siteName}
             onChange={(event) => update({ siteName: event.target.value })}
-            onBlur={isOwner ? () => void updateSite({ name: settings.siteName }) : undefined}
-            disabled={!isOwner}
+            onBlur={canEditSite ? () => void updateSite({ name: settings.siteName }) : undefined}
+            disabled={!canEditSite}
           />
         </div>
         <div className="pb-3 pt-1">
@@ -214,12 +195,32 @@ export default function SettingsPage() {
             min={1}
             value={String(settings.capacity)}
             onChange={(event) => update({ capacity: Math.max(1, Number(event.target.value) || 1) })}
-            onBlur={isOwner ? () => void updateSite({ capacity: settings.capacity }) : undefined}
-            hint={isOwner ? t('settings.capacityHelp') : undefined}
-            disabled={!isOwner}
+            onBlur={canEditSite ? () => void updateSite({ capacity: settings.capacity }) : undefined}
+            hint={canEditSite ? t('settings.capacityHelp') : undefined}
+            disabled={!canEditSite}
+          />
+        </div>
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.monthlyRate')}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={String(settings.monthlyRate ?? 1800)}
+            onChange={(event) => update({ monthlyRate: Math.max(1, Number(event.target.value) || 1) })}
+            onBlur={canEditSite ? () => void updateSite({ monthlyRate: settings.monthlyRate }) : undefined}
+            hint={canEditSite ? t('settings.monthlyRateHelp') : undefined}
+            disabled={!canEditSite}
+            icon={IndianRupee}
           />
         </div>
       </Group>
+
+      {isOwner && (
+        <Group id="staff" title={t('settings.staffTeam')} icon={UsersRound}>
+          <StaffTeamSection online={online} />
+        </Group>
+      )}
 
       <Group title={t('settings.appearance')} icon={Palette}>
         <div className="py-3">
@@ -361,17 +362,6 @@ export default function SettingsPage() {
             label={t('settings.remember')}
             description={t('settings.rememberDesc')}
           />
-          <Toggle
-            checked={bioEnrolled}
-            onChange={(value) => void handleBiometric(value)}
-            disabled={!bioReady}
-            label={t('settings.biometric')}
-            description={bioReady ? t('settings.biometricDesc') : t('settings.biometricNotAvailable')}
-          />
-        </div>
-        <div className="flex items-center gap-2 py-2.5 text-[11px] text-navy-400 dark:text-navy-300">
-          <Fingerprint className="h-3.5 w-3.5" aria-hidden="true" />
-          {t('settings.biometricNotAvailable')}
         </div>
       </Group>
 
@@ -440,32 +430,6 @@ export default function SettingsPage() {
         <p className="pb-3 pt-1 text-xs leading-relaxed text-navy-400 dark:text-navy-300">{t('settings.syncHint')}</p>
       </Group>
 
-      <Group title={t('settings.data')} icon={Smartphone}>
-        {isOwner && (
-          <div className="flex items-center gap-3 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-white">
-              <RotateCcw className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-navy-900 dark:text-white">{t('settings.reset')}</p>
-              <p className="mt-0.5 text-xs text-navy-500 dark:text-navy-300">{t('settings.resetDesc')}</p>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={() => setResetOpen(true)}
-              className="min-h-[44px] shrink-0 px-3.5 text-xs text-[#B91C1C] dark:text-[#FCA5A5]"
-            >
-              {t('settings.reset')}
-            </Button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between py-3 text-xs">
-          <span className="text-navy-500 dark:text-navy-300">{t('settings.version')}</span>
-          <span className="font-mono font-semibold text-navy-900 dark:text-white">1.0.0</span>
-        </div>
-      </Group>
-
       <Group title={t('settings.role')} icon={Languages}>
         <div className="flex items-center gap-3 py-3">
           <div className="min-w-0 flex-1">
@@ -493,7 +457,53 @@ export default function SettingsPage() {
             </Link>
           )}
         </div>
-        <div className="py-3">
+
+        {!isOwner && (can('dashboard') || can('revenue') || can('passes') || can('reports') || can('employees')) && (
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <span className="w-full text-xs font-semibold text-navy-500 dark:text-navy-300">{t('panel.admin')}</span>
+            {(can('dashboard') || can('revenue')) && (
+              <Link to="/admin" className="rounded-xl bg-navy-50 px-3 py-1.5 text-xs font-semibold text-navy-800 dark:bg-white/10 dark:text-white">
+                {t('nav.home')}
+              </Link>
+            )}
+            {can('passes') && (
+              <Link to="/admin/passes" className="rounded-xl bg-navy-50 px-3 py-1.5 text-xs font-semibold text-navy-800 dark:bg-white/10 dark:text-white">
+                {t('nav.passes')}
+              </Link>
+            )}
+            {can('reports') && (
+              <Link to="/admin/reports" className="rounded-xl bg-navy-50 px-3 py-1.5 text-xs font-semibold text-navy-800 dark:bg-white/10 dark:text-white">
+                {t('nav.reports')}
+              </Link>
+            )}
+            {can('employees') && (
+              <Link to="/admin/employees" className="rounded-xl bg-navy-50 px-3 py-1.5 text-xs font-semibold text-navy-800 dark:bg-white/10 dark:text-white">
+                {t('nav.employees')}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {isOwner && (
+          <div className="flex items-center gap-3 border-t border-navy-100 py-3 dark:border-white/10">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-white">
+              <RotateCcw className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-navy-900 dark:text-white">{t('settings.reset')}</p>
+              <p className="mt-0.5 text-xs text-navy-500 dark:text-navy-300">{t('settings.resetDesc')}</p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setResetOpen(true)}
+              className="min-h-[44px] shrink-0 px-3.5 text-xs text-[#B91C1C] dark:text-[#FCA5A5]"
+            >
+              {t('settings.reset')}
+            </Button>
+          </div>
+        )}
+
+        <div className="border-t border-navy-100 py-3 dark:border-white/10">
           <Button
             full
             variant="ghost"
@@ -506,8 +516,10 @@ export default function SettingsPage() {
         </div>
       </Group>
 
+      {!isOwner && <StaffLeaveSection />}
+
       <p className="mt-5 text-center text-[11px] leading-relaxed text-navy-400 dark:text-navy-300">
-        ParkPro 1.0.0 · {t('app.tagline')}
+        ParkPro · {t('app.tagline')}
         <br />
         {t('logs.localNote')}
       </p>

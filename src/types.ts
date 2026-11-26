@@ -2,6 +2,21 @@ export type Role = 'staff' | 'owner'
 export type Lang = 'en' | 'hi' | 'gu'
 export type ThemeMode = 'system' | 'light' | 'dark'
 
+export type StaffPermissionKey =
+  | 'scan'
+  | 'parked'
+  | 'walkin'
+  | 'history'
+  | 'dashboard'
+  | 'revenue'
+  | 'passes'
+  | 'managePasses'
+  | 'reports'
+  | 'employees'
+  | 'siteSettings'
+
+export type StaffPermissions = Record<StaffPermissionKey, boolean>
+
 export type VehicleType = 'car' | 'suv' | 'bike' | 'ev'
 export type PlanId = 'daily' | 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
 export type PassStatus = 'active' | 'expiring' | 'expired'
@@ -21,6 +36,9 @@ export interface Pass {
   startDate: string
   endDate: string
   amount: number
+  paymentMode?: PaymentMode
+  collectedBy?: string
+  collectedByUsername?: string
   slot?: string
   photo?: string
   notes?: string
@@ -51,6 +69,9 @@ export interface WalkIn {
   vehicleType: VehicleType
   photo?: string
   amount: number
+  paymentMode?: PaymentMode
+  collectedBy?: string
+  collectedByUsername?: string
   at: string
   synced: boolean
 }
@@ -81,6 +102,7 @@ export interface AppSettings {
   ownerPin?: string
   rememberDevice: boolean
   capacity: number
+  monthlyRate: number
   notifications: {
     expiring: boolean
     nearlyFull: boolean
@@ -96,7 +118,7 @@ export interface AppSettings {
 export interface Session {
   role: Role
   unlocked: boolean
-  method: 'password' | 'pin' | 'biometric' | 'demo'
+  method: 'password' | 'pin' | 'demo'
   at: number
 }
 
@@ -126,6 +148,9 @@ export interface NewPassInput {
   startDate: string
   endDate: string
   amount: number
+  paymentMode?: PaymentMode
+  collectedBy?: string
+  collectedByUsername?: string
   slot?: string
   notes?: string
   photo?: string
@@ -138,11 +163,26 @@ export interface NewWalkInInput {
   vehicleType: VehicleType
   photo?: string
   amount: number
+  paymentMode?: PaymentMode
 }
 
 export interface ParkedItem {
   pass: Pass
   since: string
+}
+
+export interface TodayPaymentItem {
+  id: string
+  kind: 'walkin' | 'pass' | 'renewal'
+  customerName: string
+  phone: string
+  vehicle?: string
+  photo?: string
+  amount: number
+  paymentMode: PaymentMode
+  at: string
+  collectedBy?: string
+  collectedByUsername?: string
 }
 
 export interface SiteStats {
@@ -155,6 +195,11 @@ export interface SiteStats {
   occupied: number
   occupancyPct: number
   todayRevenue: number
+  todayCashRevenue: number
+  todayOnlineRevenue: number
+  todayCashCount: number
+  todayOnlineCount: number
+  todayPayments: TodayPaymentItem[]
   todayEntries: number
   pending: number
   totalPasses: number

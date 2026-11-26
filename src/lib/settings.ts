@@ -3,7 +3,6 @@ import type { AppSettings, Lang, ThemeMode } from '@/types'
 export const SETTINGS_KEY = 'parkpro.settings.v1'
 export const AUTH_KEY = 'parkpro.auth.v1'
 export const SESSION_KEY = 'parkpro.session.v1'
-export const BIOMETRIC_KEY = 'parkpro.biometric.v1'
 
 export const PIN_STAFF = '1234'
 export const PIN_OWNER = '4321'
@@ -29,6 +28,7 @@ export const defaultSettings: AppSettings = {
   ownerPin: PIN_OWNER,
   rememberDevice: true,
   capacity: 120,
+  monthlyRate: 1800,
   notifications: { expiring: true, nearlyFull: true, overstay: true },
   staffName: 'Arjun Rathod',
   ownerName: DEFAULT_OWNER_NAME,

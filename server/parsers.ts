@@ -1,9 +1,10 @@
-import type { AuditLog, Direction, LogKind, Pass, ScanEvent, ScanOutcome, WalkIn } from '../src/types'
+import type { AuditLog, Direction, LogKind, Pass, PaymentMode, ScanEvent, ScanOutcome, WalkIn } from '../src/types'
 import { normalizePlate, uid } from '../src/lib/utils'
 import { oneOf, optionalStr, str, isoDate, asObject, fail } from './validate'
 
 const VEHICLE_TYPES = ['car', 'suv', 'bike', 'ev'] as const
 const PLANS = ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly'] as const
+const PAYMENT_MODES = ['cash', 'upi', 'card'] as const
 const DIRECTIONS = ['IN', 'OUT', 'DENIED'] as const
 const OUTCOMES = ['success', 'expiring', 'expired', 'unknown'] as const
 const SOURCES = ['camera', 'manual'] as const
@@ -37,6 +38,7 @@ export function parsePassBody(body: Record<string, unknown>, existing?: Pass): P
     startDate: isoDate(body.startDate ?? existing?.startDate, 'Start date'),
     endDate: isoDate(body.endDate ?? existing?.endDate, 'End date'),
     amount: Number(body.amount ?? existing?.amount ?? 0),
+    paymentMode: oneOf(body.paymentMode ?? existing?.paymentMode ?? 'cash', 'Payment mode', PAYMENT_MODES) as PaymentMode,
     slot: optionalStr(body.slot, 'Slot', 20) ?? existing?.slot,
     photo: optionalStr(body.photo, 'Photo', PHOTO_MAX) ?? existing?.photo,
     notes: optionalStr(body.notes, 'Notes', 300) ?? existing?.notes,
@@ -74,6 +76,7 @@ export function parseWalkInBody(value: unknown): WalkIn {
     vehicleType: oneOf(body.vehicleType, 'Vehicle type', VEHICLE_TYPES),
     photo: optionalStr(body.photo, 'Photo', PHOTO_MAX),
     amount: Number(body.amount ?? 0),
+    paymentMode: oneOf(body.paymentMode ?? 'cash', 'Payment mode', PAYMENT_MODES) as PaymentMode,
     at,
     synced: true,
   }

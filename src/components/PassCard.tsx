@@ -26,7 +26,7 @@ export const PassCard = forwardRef<HTMLDivElement, { pass: Pass; siteName: strin
         />
         <div className="relative p-5">
           <div className="flex items-center justify-between">
-            <Logo size={30} showWordmark wordmarkClass="text-white text-lg" />
+            <Logo size={30} invert showWordmark wordmarkClass="text-white text-lg" />
             <span className="rounded-full bg-gradient-to-r from-[#1868FE] to-[#2B7BFF] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-sm">
               {t('passes.topass')}
             </span>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
+  Banknote,
   Bike,
   Camera,
   CameraOff,
@@ -9,15 +10,17 @@ import {
   CheckCircle2,
   ChevronRight,
   CloudOff,
+  CreditCard,
   IndianRupee,
   Loader2,
   RefreshCw,
+  Smartphone,
   SwitchCamera,
   Truck,
   UserRoundPlus,
   Zap,
 } from 'lucide-react'
-import type { VehicleType, WalkIn } from '@/types'
+import type { PayMode, VehicleType, WalkIn } from '@/types'
 import { useData } from '@/state/DataContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
@@ -40,18 +43,32 @@ export default function WalkInPage() {
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navState = (location.state as { vehicle?: string; phone?: string; name?: string } | null) ?? null
 
-  const [facing, setFacing] = useState<Facing>('user')
+  const [facing, setFacing] = useState<Facing>('environment')
   const [camState, setCamState] = useState<'starting' | 'live' | 'error' | 'off'>('starting')
   const [photo, setPhoto] = useState<CompressedImage | null>(null)
   const [compressing, setCompressing] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
 
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [vehicle, setVehicle] = useState('')
+  const [name, setName] = useState(navState?.name ?? '')
+  const [phone, setPhone] = useState(navState?.phone ?? '')
+  const [vehicle, setVehicle] = useState(navState?.vehicle ?? '')
   const [vehicleType, setVehicleType] = useState<VehicleType>('car')
   const [amount, setAmount] = useState(120)
+  const [paymentMode, setPaymentMode] = useState<PayMode>('cash')
+
+  const lastNavKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!navState) return
+    const key = `${navState.vehicle ?? ''}|${navState.phone ?? ''}|${navState.name ?? ''}`
+    if (lastNavKeyRef.current === key) return
+    lastNavKeyRef.current = key
+    if (navState.vehicle) setVehicle((prev) => prev || navState.vehicle || '')
+    if (navState.phone) setPhone((prev) => prev || navState.phone || '')
+    if (navState.name) setName((prev) => prev || navState.name || '')
+  }, [navState])
   const [errors, setErrors] = useState<{ name?: string; phone?: string }>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<WalkIn | null>(null)
@@ -149,6 +166,7 @@ export default function WalkInPage() {
         vehicleType,
         photo: photo?.dataUrl,
         amount,
+        paymentMode,
       })
       vibrate(HAPTIC.success, settings.haptics)
       setSaved(entry)
@@ -166,9 +184,10 @@ export default function WalkInPage() {
     setVehicle('')
     setVehicleType('car')
     setAmount(120)
+    setPaymentMode('cash')
     setPhoto(null)
     setErrors({})
-    setFacing('user')
+    setFacing('environment')
   }
 
   if (saved) {
@@ -236,7 +255,7 @@ export default function WalkInPage() {
         </div>
 
         <section className="mt-4" aria-label={t('walkin.photo')}>
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-navy-950">
+          <div className="relative aspect-[16/10] max-h-64 w-full overflow-hidden rounded-2xl bg-navy-950 sm:aspect-[16/9] sm:max-h-80">
             {photo ? (
               <>
                 <img src={photo.dataUrl} alt={t('walkin.photo')} className="h-full w-full object-cover" />
@@ -387,6 +406,20 @@ export default function WalkInPage() {
             icon={IndianRupee}
             hint={formatMoney(amount, lang)}
           />
+
+          <div>
+            <p className="label">{t('admin.paymentMode')}</p>
+            <Segmented<PayMode>
+              ariaLabel={t('admin.paymentMode')}
+              value={paymentMode}
+              onChange={setPaymentMode}
+              options={[
+                { id: 'cash', label: t('pay.cash'), icon: Banknote },
+                { id: 'upi', label: t('pay.upi'), icon: Smartphone },
+                { id: 'card', label: t('pay.card'), icon: CreditCard },
+              ]}
+            />
+          </div>
 
           {!online && (
             <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3 text-xs font-medium text-[#7C4A00] dark:bg-amber-500/10 dark:text-amber-200">

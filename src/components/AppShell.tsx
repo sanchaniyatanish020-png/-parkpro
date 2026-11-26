@@ -5,7 +5,6 @@ import { Header } from '@/components/Header'
 import { BottomNav } from '@/components/BottomNav'
 import { Sidebar } from '@/components/Sidebar'
 import { LockScreen } from '@/components/LockScreen'
-import { UpdateToast } from '@/components/UpdateToast'
 import { useAuth } from '@/state/AuthContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useData } from '@/state/DataContext'
@@ -73,7 +72,6 @@ export function AppShell() {
         </main>
 
         <BottomNav />
-        <UpdateToast />
       </div>
       {locked && <LockScreen />}
     </div>
