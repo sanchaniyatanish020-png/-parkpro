@@ -191,9 +191,16 @@ export default function ScanPage() {
       if (busyRef.current) return
       busyRef.current = true
       setPhase('processing')
-      void scanRef.current(text, 'camera').then((feedback) => {
-        window.setTimeout(() => showFeedback(feedback), 220)
-      })
+      void scanRef.current(text, 'camera')
+        .then((feedback) => {
+          window.setTimeout(() => showFeedback(feedback), 220)
+        })
+        .catch((err) => {
+          toast({ message: err instanceof Error ? err.message : t('toast.error'), tone: 'error' })
+          setPhase('scanning')
+          busyRef.current = false
+          cooldownRef.current = Date.now() + 1200
+        })
     },
     [showFeedback],
   )
