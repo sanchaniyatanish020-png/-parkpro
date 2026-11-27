@@ -1,14 +1,14 @@
 import { forwardRef } from 'react'
 import { MapPin } from 'lucide-react'
 import type { Pass } from '@/types'
-import { formatDate, formatPlate, planLabel } from '@/lib/utils'
+import { formatPlate } from '@/lib/utils'
 import { useSettings } from '@/state/SettingsContext'
 import { QrImage } from '@/components/QrCode'
 import { Logo } from '@/components/Logo'
 
 export const PassCard = forwardRef<HTMLDivElement, { pass: Pass; siteName: string; printable?: boolean }>(
   function PassCard({ pass, siteName, printable }, ref) {
-    const { t, lang } = useSettings()
+    const { t } = useSettings()
     return (
       <div
         ref={ref}
@@ -49,15 +49,9 @@ export const PassCard = forwardRef<HTMLDivElement, { pass: Pass; siteName: strin
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">{t('passes.validity')}</p>
-              <p className="mt-0.5 font-mono text-sm font-semibold text-white">{formatDate(pass.endDate, lang)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">{t('passes.plan')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-white">{planLabel(pass.plan, t)}</p>
-            </div>
+          <div className="mt-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">{t('passes.phone')}</p>
+            <p className="mt-0.5 font-mono text-sm font-semibold text-white">{pass.phone}</p>
           </div>
 
           <div className="mt-4 flex items-center gap-3.5 rounded-2xl bg-white p-3">
