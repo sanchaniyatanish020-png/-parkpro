@@ -284,10 +284,12 @@ export default function LoginPage() {
             <div className="w-full max-w-[420px] rounded-[24px] border border-white/70 bg-white/[0.92] p-4 shadow-[0_24px_70px_-24px_rgba(11,31,58,0.45)] backdrop-blur-xl sm:rounded-[30px] sm:p-7 lg:border-slate-200/70 lg:bg-white lg:shadow-[0_30px_80px_-40px_rgba(11,31,58,0.35)] dark:border-white/10 dark:bg-navy-900/85 dark:lg:bg-navy-900/70">
               <div className="mb-3 sm:mb-4">
                 <h1 className="font-display text-[22px] font-bold tracking-tight text-[#0B1F3A] sm:text-[26px] dark:text-white">
-                  {t('auth.welcome')}
+                  <span className="lg:hidden">Login to Your Account</span>
+                  <span className="hidden lg:inline">Welcome Back</span>
                 </h1>
                 <p className="mt-0.5 text-xs font-normal text-slate-500 sm:mt-1 sm:text-sm dark:text-navy-300">
-                  {t('auth.pinSubtitle')}
+                  <span className="lg:hidden">Enter your credentials to access the Poriya Group management system.</span>
+                  <span className="hidden lg:inline">Login to your account to continue</span>
                 </p>
               </div>
 
