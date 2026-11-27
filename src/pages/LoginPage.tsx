@@ -193,7 +193,7 @@ export default function LoginPage() {
             <img
               src="/images/poriya-logo.png"
               alt="Poriya Group"
-              className="h-24 w-auto object-contain"
+              className="h-32 w-auto object-contain"
             />
           </div>
 
@@ -249,7 +249,7 @@ export default function LoginPage() {
               <img
                 src="/images/poriya-logo.png"
                 alt="Poriya Group"
-                className="h-16 w-auto object-contain"
+                className="h-24 w-auto object-contain"
               />
             </div>
             {languageSelect}
