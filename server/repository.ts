@@ -32,8 +32,9 @@ export interface ReminderRecord {
   id: string
   passId: string
   endDate: string
-  channel: 'manual' | 'whatsapp'
-  status: 'sent' | 'failed'
+  channel: 'manual' | 'whatsapp' | 'click_to_chat'
+  status: 'pending' | 'opened' | 'sent' | 'skipped' | 'failed'
+  reminderType?: string
   message: string
   error?: string
   at: string
@@ -210,8 +211,9 @@ function toReminder(row: Row): ReminderRecord {
     id: String(row.id),
     passId: String(row.pass_id),
     endDate: String(row.end_date),
-    channel: row.channel === 'whatsapp' ? 'whatsapp' : 'manual',
-    status: row.status === 'failed' ? 'failed' : 'sent',
+    channel: (row.channel as ReminderRecord['channel']) || 'manual',
+    status: (row.status as ReminderRecord['status']) || 'sent',
+    reminderType: row.reminder_type ? String(row.reminder_type) : undefined,
     message: String(row.message ?? ''),
     error: row.error == null ? undefined : String(row.error),
     at: String(row.at),
@@ -220,12 +222,20 @@ function toReminder(row: Row): ReminderRecord {
   }
 }
 
-export function listReminders(limit = 500): ReminderRecord[] {
+export function listReminders(limit = 1000): ReminderRecord[] {
   return (stmt('SELECT * FROM pass_reminders ORDER BY at DESC LIMIT ?').all(limit) as Row[]).map(toReminder)
 }
 
 /** Any successful reminder for this expiry cycle means the customer was already contacted. */
-export function hasSentReminder(passId: string, endDate: string): boolean {
+export function hasSentReminder(passId: string, endDate: string, reminderType?: string): boolean {
+  if (reminderType) {
+    const row = stmt("SELECT 1 FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND reminder_type = ? AND status = 'sent'").get(
+      passId,
+      endDate,
+      reminderType,
+    )
+    return Boolean(row)
+  }
   const row = stmt("SELECT 1 FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND status = 'sent'").get(
     passId,
     endDate,
@@ -238,6 +248,7 @@ export function recordReminder(input: {
   endDate: string
   channel: ReminderRecord['channel']
   status: ReminderRecord['status']
+  reminderType?: string
   message: string
   error?: string
   at?: string
@@ -245,11 +256,12 @@ export function recordReminder(input: {
   byUsername?: string
 }): ReminderRecord {
   const at = input.at ?? new Date().toISOString()
+  const reminderType = input.reminderType ?? 'expiring'
   stmt(
-    `INSERT INTO pass_reminders (id, pass_id, end_date, channel, status, message, error, at, by_name, by_username)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(pass_id, end_date, channel) DO UPDATE SET
-       status = excluded.status, message = excluded.message, error = excluded.error,
+    `INSERT INTO pass_reminders (id, pass_id, end_date, channel, status, reminder_type, message, error, at, by_name, by_username)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(pass_id, end_date, reminder_type) DO UPDATE SET
+       channel = excluded.channel, status = excluded.status, message = excluded.message, error = excluded.error,
        at = excluded.at, by_name = excluded.by_name, by_username = excluded.by_username`,
   ).run(
     `rm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -257,16 +269,17 @@ export function recordReminder(input: {
     input.endDate,
     input.channel,
     input.status,
+    reminderType,
     input.message,
     input.error ?? null,
     at,
     input.byName ?? null,
     input.byUsername ?? null,
   )
-  const row = stmt('SELECT * FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND channel = ?').get(
+  const row = stmt('SELECT * FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND reminder_type = ?').get(
     input.passId,
     input.endDate,
-    input.channel,
+    reminderType,
   ) as Row
   return toReminder(row)
 }

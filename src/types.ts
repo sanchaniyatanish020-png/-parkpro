@@ -178,14 +178,17 @@ export interface ParkedItem {
   since: string
 }
 
-export type ReminderChannel = 'manual' | 'whatsapp'
+export type ReminderChannel = 'manual' | 'whatsapp' | 'click_to_chat'
+export type ReminderStatus = 'pending' | 'opened' | 'sent' | 'skipped' | 'failed'
+export type ReminderWindowType = '3_days' | '1_day' | 'today' | 'expired'
 
 export interface ReminderRecord {
   id: string
   passId: string
   endDate: string
   channel: ReminderChannel
-  status: 'sent' | 'failed'
+  status: ReminderStatus
+  reminderType?: string
   message: string
   error?: string
   at: string

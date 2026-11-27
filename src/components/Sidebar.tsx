@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart3, CarFront, History, Home, LogOut, ScanLine, Settings2, Ticket, UserRoundPlus, Users, Wifi, CloudOff } from 'lucide-react'
+import { BarChart3, CarFront, History, Home, LogOut, MessageCircle, ScanLine, Settings2, Ticket, UserRoundPlus, Users, Wifi, CloudOff } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { Avatar } from '@/components/ui'
@@ -24,6 +24,7 @@ export function Sidebar() {
   const adminRaw: (NavItem | null)[] = [
     can('dashboard') || can('revenue') ? { to: '/admin', icon: Home, label: t('nav.home'), end: true } : null,
     can('passes') ? { to: '/admin/passes', icon: Ticket, label: t('nav.passes') } : null,
+    can('passes') ? { to: '/admin/reminders', icon: MessageCircle, label: t('nav.reminders') } : null,
     can('reports') ? { to: '/admin/reports', icon: BarChart3, label: t('nav.reports') } : null,
     can('employees') ? { to: '/admin/employees', icon: Users, label: t('nav.employees') } : null,
   ]

@@ -10,6 +10,7 @@ import {
   ScanLine,
   Settings2,
   Ticket,
+  MessageCircle,
   UserRoundPlus,
   Users,
   type LucideIcon,
@@ -53,6 +54,9 @@ export function BottomNav() {
   const passesItem = can('passes')
     ? ({ to: '/admin/passes', icon: Ticket, label: t('nav.passes'), group: 'admin' } as NavItem)
     : null
+  const remindersItem = can('passes')
+    ? ({ to: '/admin/reminders', icon: MessageCircle, label: t('nav.reminders'), group: 'admin' } as NavItem)
+    : null
   const reportsItem = can('reports')
     ? ({ to: '/admin/reports', icon: BarChart3, label: t('nav.reports'), group: 'admin' } as NavItem)
     : null
@@ -81,6 +85,7 @@ export function BottomNav() {
     ? [
         ...pick(homeItem),
         ...pick(passesItem),
+        ...pick(remindersItem),
         ...pick(reportsItem),
         ...pick(employeesItem),
         ...pick(parkedItem),
@@ -91,6 +96,7 @@ export function BottomNav() {
     : [
         ...pick(parkedItem),
         ...pick(passesItem),
+        ...pick(remindersItem),
         ...pick(walkinItem),
         ...pick(historyItem),
         ...pick(homeItem),

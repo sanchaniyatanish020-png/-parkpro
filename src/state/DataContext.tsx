@@ -67,7 +67,11 @@ interface DataContextValue {
     whatsappTemplate?: string
     whatsappLang?: string
   }) => Promise<boolean>
-  markReminder: (passId: string, message?: string) => Promise<void>
+  markReminder: (
+    passId: string,
+    message?: string,
+    options?: { channel?: ReminderRecord['channel']; status?: ReminderRecord['status']; reminderType?: string },
+  ) => Promise<void>
   runReminders: () => Promise<ReminderRunResult>
   syncNow: (manual?: boolean) => Promise<void>
   refresh: () => Promise<void>
@@ -582,20 +586,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const markReminder = useCallback(
-    async (passId: string, message?: string) => {
+    async (
+      passId: string,
+      message?: string,
+      options?: { channel?: ReminderRecord['channel']; status?: ReminderRecord['status']; reminderType?: string },
+    ) => {
       const pass = passes.find((item) => item.id === passId)
       if (!pass) return
       try {
-        const { reminder } = await api.markReminder(passId, { message })
+        const { reminder } = await api.markReminder(passId, {
+          message,
+          channel: options?.channel ?? 'manual',
+          status: options?.status ?? 'sent',
+          reminderType: options?.reminderType ?? 'expiring',
+        })
         setReminders((prev) => [
           reminder,
           ...prev.filter(
             (item) =>
-              !(item.passId === reminder.passId && item.endDate === reminder.endDate && item.channel === reminder.channel),
+              !(
+                item.passId === reminder.passId &&
+                item.endDate === reminder.endDate &&
+                (item.reminderType ?? 'expiring') === (reminder.reminderType ?? 'expiring')
+              ),
           ),
         ])
       } catch {
-        /* tracking is best-effort — the WhatsApp message was already opened */
+        /* tracking is best-effort */
       }
     },
     [passes],

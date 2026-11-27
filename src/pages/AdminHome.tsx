@@ -481,13 +481,22 @@ export default function AdminHome() {
                 </h2>
               </div>
               {can('passes') && (
-                <Link
-                  to="/admin/passes?filter=expiring"
-                  className="flex min-h-[40px] items-center gap-0.5 text-xs font-bold text-[#1868FE] dark:text-blue-400"
-                >
-                  {t('action.viewAll')}
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/admin/reminders"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#25D366]/15 px-3 py-1.5 text-xs font-bold text-[#16A34A] transition-colors hover:bg-[#25D366]/25 dark:bg-[#25D366]/20"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    WhatsApp Expiry Reminders
+                  </Link>
+                  <Link
+                    to="/admin/passes?filter=expiring"
+                    className="flex min-h-[40px] items-center gap-0.5 text-xs font-bold text-[#1868FE] dark:text-blue-400"
+                  >
+                    {t('action.viewAll')}
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </div>
               )}
             </div>
 

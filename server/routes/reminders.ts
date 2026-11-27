@@ -38,18 +38,21 @@ router.post(
   }),
 )
 
-router.post('/:passId', requirePermission('managePasses'), (req, res) => {
+router.post('/:passId', requirePermission('managePasses', 'passes'), (req, res) => {
   const pass = getPass(req.params.passId)
   if (!pass) fail(404, 'Pass not found')
 
   const body = asObject(req.body)
-  const channel = body.channel === 'whatsapp' ? 'whatsapp' : 'manual'
-  const message = optionalStr(body.message, 'Message', 500) ?? `Renewal reminder for ${pass.name}`
+  const channel = (body.channel === 'click_to_chat' || body.channel === 'whatsapp' || body.channel === 'manual') ? body.channel : 'manual'
+  const status = (body.status === 'opened' || body.status === 'sent' || body.status === 'skipped' || body.status === 'failed') ? body.status : 'sent'
+  const reminderType = optionalStr(body.reminderType, 'Reminder type', 40) ?? 'expiring'
+  const message = optionalStr(body.message, 'Message', 2000) ?? `Renewal reminder for ${pass.name}`
   const reminder = recordReminder({
     passId: pass.id,
     endDate: pass.endDate,
     channel,
-    status: 'sent',
+    status,
+    reminderType,
     message,
     byName: req.user!.name,
     byUsername: req.user!.username,

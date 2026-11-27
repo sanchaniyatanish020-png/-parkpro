@@ -67,14 +67,15 @@ db.exec(`
     id TEXT PRIMARY KEY,
     pass_id TEXT NOT NULL REFERENCES passes(id) ON DELETE CASCADE,
     end_date TEXT NOT NULL,
-    channel TEXT NOT NULL CHECK (channel IN ('manual', 'whatsapp')),
-    status TEXT NOT NULL CHECK (status IN ('sent', 'failed')),
+    channel TEXT NOT NULL CHECK (channel IN ('manual', 'whatsapp', 'click_to_chat')),
+    status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'opened', 'skipped')),
+    reminder_type TEXT NOT NULL DEFAULT 'expiring',
     message TEXT NOT NULL DEFAULT '',
     error TEXT,
     at TEXT NOT NULL,
     by_name TEXT,
     by_username TEXT,
-    UNIQUE(pass_id, end_date, channel)
+    UNIQUE(pass_id, end_date, reminder_type)
   );
   CREATE INDEX IF NOT EXISTS idx_reminders_at ON pass_reminders(at);
   CREATE INDEX IF NOT EXISTS idx_reminders_pass ON pass_reminders(pass_id, end_date);
@@ -211,4 +212,8 @@ if (!siteColumns.some((col) => col.name === 'whatsapp_template')) {
 }
 if (!siteColumns.some((col) => col.name === 'whatsapp_lang')) {
   db.exec("ALTER TABLE site ADD COLUMN whatsapp_lang TEXT NOT NULL DEFAULT 'en'")
+}
+const reminderColumns = db.prepare('PRAGMA table_info(pass_reminders)').all() as { name: string }[]
+if (!reminderColumns.some((col) => col.name === 'reminder_type')) {
+  db.exec("ALTER TABLE pass_reminders ADD COLUMN reminder_type TEXT NOT NULL DEFAULT 'expiring'")
 }

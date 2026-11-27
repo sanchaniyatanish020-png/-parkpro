@@ -1,8 +1,10 @@
 import type {
   AuditLog,
   Pass,
+  ReminderChannel,
   ReminderRecord,
   ReminderRunResult,
+  ReminderStatus,
   Role,
   ScanEvent,
   ScanFeedback,
@@ -251,7 +253,17 @@ export const api = {
   updateSite: (patch: Partial<SitePayload>) =>
     request<{ site: SitePayload }>('/site', { method: 'PATCH', body: JSON.stringify(patch) }),
 
-  markReminder: (passId: string, payload: { message?: string; channel?: 'manual' | 'whatsapp' }) =>
+  listReminders: () => request<{ reminders: ReminderRecord[] }>('/reminders'),
+
+  markReminder: (
+    passId: string,
+    payload: {
+      message?: string
+      channel?: ReminderChannel
+      status?: ReminderStatus
+      reminderType?: string
+    },
+  ) =>
     request<{ reminder: ReminderRecord }>(`/reminders/${encodeURIComponent(passId)}`, {
       method: 'POST',
       body: JSON.stringify(payload),

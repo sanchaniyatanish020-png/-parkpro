@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 125" width="100%" style="max-width:760px;height:auto;display:block;margin:0 auto;">
+<defs>
+  <style>
+    .t-title { font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; fill: #0f172a; }
+    .t-sub { font-family: 'Segoe UI', Arial, sans-serif; font-weight: 400; fill: #475569; }
+    .t-bold { font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; }
+    .t-reg { font-family: 'Segoe UI', Arial, sans-serif; font-weight: 500; }
+    .t-mono { font-family: 'Consolas', 'Courier New', monospace; }
+  </style>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#334155"/>
+  </marker>
+  <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#1d4ed8"/>
+  </marker>
+  <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#15803d"/>
+  </marker>
+  <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#b91c1c"/>
+  </marker>
+  <filter id="sh" x="-5%" y="-5%" width="112%" height="115%">
+    <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.08"/>
+  </filter>
+</defs>
+<rect x="18" y="24" width="126" height="66" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.8" filter="url(#sh)"/><circle cx="36" cy="24" r="11" fill="#0f766e"/><text x="36" y="28" text-anchor="middle" font-size="11" class="t-bold" fill="#ffffff">1</text><text x="81" y="53" text-anchor="middle" font-size="13.5" class="t-bold" fill="#0f172a">Browse</text><text x="81" y="71" text-anchor="middle" font-size="10.5" class="t-sub">Search & filter catalog</text><text x="81" y="108" text-anchor="middle" font-size="10" class="t-bold" fill="#0f766e">MEMBER</text><path d="M 146 57 L 166 57" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/><rect x="168" y="24" width="126" height="66" rx="8" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.8" filter="url(#sh)"/><circle cx="186" cy="24" r="11" fill="#0369a1"/><text x="186" y="28" text-anchor="middle" font-size="11" class="t-bold" fill="#ffffff">2</text><text x="231" y="53" text-anchor="middle" font-size="13.5" class="t-bold" fill="#0f172a">Request</text><text x="231" y="71" text-anchor="middle" font-size="10.5" class="t-sub">Status: Pending</text><text x="231" y="108" text-anchor="middle" font-size="10" class="t-bold" fill="#0369a1">MEMBER</text><path d="M 296 57 L 316 57" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/><rect x="318" y="24" width="126" height="66" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.8" filter="url(#sh)"/><circle cx="336" cy="24" r="11" fill="#b45309"/><text x="336" y="28" text-anchor="middle" font-size="11" class="t-bold" fill="#ffffff">3</text><text x="381" y="53" text-anchor="middle" font-size="13.5" class="t-bold" fill="#0f172a">Review</text><text x="381" y="71" text-anchor="middle" font-size="10.5" class="t-sub">Approve or Reject</text><text x="381" y="108" text-anchor="middle" font-size="10" class="t-bold" fill="#b45309">ADMIN</text><path d="M 446 57 L 466 57" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/><rect x="468" y="24" width="126" height="66" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.8" filter="url(#sh)"/><circle cx="486" cy="24" r="11" fill="#7c3aed"/><text x="486" y="28" text-anchor="middle" font-size="11" class="t-bold" fill="#ffffff">4</text><text x="531" y="53" text-anchor="middle" font-size="13.5" class="t-bold" fill="#0f172a">Issue</text><text x="531" y="71" text-anchor="middle" font-size="10.5" class="t-sub">AvailableQty - 1</text><text x="531" y="108" text-anchor="middle" font-size="10" class="t-bold" fill="#7c3aed">ADMIN</text><path d="M 596 57 L 616 57" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/><rect x="618" y="24" width="126" height="66" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="1.8" filter="url(#sh)"/><circle cx="636" cy="24" r="11" fill="#15803d"/><text x="636" y="28" text-anchor="middle" font-size="11" class="t-bold" fill="#ffffff">5</text><text x="681" y="53" text-anchor="middle" font-size="13.5" class="t-bold" fill="#0f172a">Return</text><text x="681" y="71" text-anchor="middle" font-size="10.5" class="t-sub">AvailableQty + 1</text><text x="681" y="108" text-anchor="middle" font-size="10" class="t-bold" fill="#15803d">ADMIN</text></svg>
