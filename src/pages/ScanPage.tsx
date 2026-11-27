@@ -451,7 +451,7 @@ export default function ScanPage() {
               </motion.div>
 
               <h2 className="mt-4 text-center font-display text-[32px] font-bold leading-tight">
-                {t(style.title)}
+                {result.outcome === 'success' && result.direction === 'OUT' ? 'Exit successful' : t(style.title)}
               </h2>
 
               {result.outcome === 'expired' && result.pass && (
