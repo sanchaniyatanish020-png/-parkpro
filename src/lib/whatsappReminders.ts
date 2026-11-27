@@ -61,64 +61,64 @@ export function buildWhatsappTemplate(
 
   if (windowType === '3_days') {
     return [
-      `Hello ${customerName}!`,
+      `નમસ્તે ${customerName}!`,
       ``,
-      `Your parking pass is going to expire soon in 3 days.`,
-      `- Vehicle Number: ${vehicleNumber}`,
-      `- Pass Type: ${passType}`,
-      `- Expiry Date: ${expiryDate}`,
+      `તમારો પાર્કિંગ પાસ ૩ દિવસમાં સમાપ્ત થવાનો છે.`,
+      `- વાહન નંબર: ${vehicleNumber}`,
+      `- પાસ પ્રકાર: ${passType}`,
+      `- સમાપ્તિ તારીખ: ${expiryDate}`,
       ``,
-      `Please renew your parking pass to continue using our parking facility without interruption.`,
+      `કોઈપણ અડચણ વિના પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
       ``,
-      `Thank you!`,
-      `${siteName || 'ParkPro'} Parking Management`,
+      `આભાર!`,
+      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   if (windowType === '1_day') {
     return [
-      `Hello ${customerName}!`,
+      `નમસ્તે ${customerName}!`,
       ``,
-      `URGENT REMINDER: Your parking pass will expire TOMORROW!`,
-      `- Vehicle Number: ${vehicleNumber}`,
-      `- Pass Type: ${passType}`,
-      `- Expiry Date: ${expiryDate}`,
+      `તાત્કાલિક સૂચના: તમારો પાર્કિંગ પાસ આવતીકાલે સમાપ્ત થઈ જશે!`,
+      `- વાહન નંબર: ${vehicleNumber}`,
+      `- પાસ પ્રકાર: ${passType}`,
+      `- સમાપ્તિ તારીખ: ${expiryDate}`,
       ``,
-      `Please renew your pass today to ensure hassle-free entry and exit at the gate.`,
+      `ગેટ પર સરળ એન્ટ્રી અને એક્ઝિટ માટે કૃપા કરીને આજે જ તમારો પાસ રિન્યુ કરાવો.`,
       ``,
-      `Thank you!`,
-      `${siteName || 'ParkPro'} Parking Management`,
+      `આભાર!`,
+      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   if (windowType === 'today') {
     return [
-      `Hello ${customerName}!`,
+      `નમસ્તે ${customerName}!`,
       ``,
-      `FINAL REMINDER: Your parking pass is EXPIRING TODAY!`,
-      `- Vehicle Number: ${vehicleNumber}`,
-      `- Pass Type: ${passType}`,
-      `- Expiry Date: ${expiryDate} (Today)`,
+      `અંતિમ સૂચના: તમારો પાર્કિંગ પાસ આજે સમાપ્ત થઈ રહ્યો છે!`,
+      `- વાહન નંબર: ${vehicleNumber}`,
+      `- પાસ પ્રકાર: ${passType}`,
+      `- સમાપ્તિ તારીખ: ${expiryDate} (આજે)`,
       ``,
-      `Kindly renew your parking pass immediately to avoid daily parking charges or gate delays.`,
+      `દૈનિક પાર્કિંગ ચાર્જ કે ગેટ પર વિલંબ ટાળવા માટે કૃપા કરીને તરત જ તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
       ``,
-      `Thank you!`,
-      `${siteName || 'ParkPro'} Parking Management`,
+      `આભાર!`,
+      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   // Pass already expired
   return [
-    `Hello ${customerName}!`,
+    `નમસ્તે ${customerName}!`,
     ``,
-    `NOTICE: Your parking pass has EXPIRED on ${expiryDate}.`,
-    `- Vehicle Number: ${vehicleNumber}`,
-    `- Pass Type: ${passType}`,
+    `સૂચના: તમારો પાર્કિંગ પાસ ${expiryDate} ના રોજ સમાપ્ત થઈ ગયો છે.`,
+    `- વાહન નંબર: ${vehicleNumber}`,
+    `- પાસ પ્રકાર: ${passType}`,
     ``,
-    `To continue using our parking facility, please renew your pass as soon as possible.`,
+    `અમારી પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને વહેલી તકે તમારો પાસ રિન્યુ કરાવો.`,
     ``,
-    `Thank you!`,
-    `${siteName || 'ParkPro'} Parking Management`,
+    `આભાર!`,
+    `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
   ].join('\n')
 }
 
