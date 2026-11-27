@@ -189,12 +189,18 @@ export default function LoginPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff]/92 via-[#f4f8ff]/65 to-transparent" />
 
-          <div className="relative z-10 flex items-center gap-3">
+          <div className="relative z-10 flex items-center gap-3.5">
             <img
               src="/images/poriya-logo.png"
               alt="Poriya Group"
-              className="h-14 w-auto object-contain"
+              className="h-20 w-auto object-contain"
             />
+            <div className="leading-tight">
+              <p className="font-display text-xl font-bold tracking-tight text-[#0B1F3A]">Poriya Group</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                STRONGER TOGETHER
+              </p>
+            </div>
           </div>
 
           <div className="relative z-10 max-w-md">
@@ -249,8 +255,16 @@ export default function LoginPage() {
               <img
                 src="/images/poriya-logo.png"
                 alt="Poriya Group"
-                className="h-11 w-auto object-contain"
+                className="h-14 w-auto object-contain"
               />
+              <div className="leading-tight">
+                <p className="font-display text-base font-bold tracking-tight text-[#0B1F3A] dark:text-white">
+                  Poriya Group
+                </p>
+                <p className="hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-navy-300 min-[380px]:block">
+                  STRONGER TOGETHER
+                </p>
+              </div>
             </div>
             {languageSelect}
           </header>
