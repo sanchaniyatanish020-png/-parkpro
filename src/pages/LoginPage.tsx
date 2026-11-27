@@ -16,9 +16,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/state/AuthContext'
 import { useSettings } from '@/state/SettingsContext'
-import { api, ApiError } from '@/lib/api'
+import { ApiError } from '@/lib/api'
 import { defaultHomeRoute } from '@/lib/permissions'
-import type { Lang, Role } from '@/types'
+import type { Lang } from '@/types'
 import { LANG_OPTIONS } from '@/lib/i18n'
 import { vibrate, HAPTIC } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
@@ -31,7 +31,7 @@ const HERO_FEATURES = [
 
 export default function LoginPage() {
   const { t, settings, update, lang } = useSettings()
-  const { authenticated, role: activeRole, permissions, signIn, signInDemo } = useAuth()
+  const { authenticated, role: activeRole, permissions, signIn } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -40,20 +40,6 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const [forgotOpen, setForgotOpen] = useState(false)
-  const [demoEnabled, setDemoEnabled] = useState(true)
-
-  useEffect(() => {
-    let active = true
-    void api
-      .health()
-      .then((health) => {
-        if (active) setDemoEnabled(health.demoLogin)
-      })
-      .catch(() => undefined)
-    return () => {
-      active = false
-    }
-  }, [])
 
   useEffect(() => {
     if (lockoutSeconds <= 0) return
@@ -92,30 +78,6 @@ export default function LoginPage() {
     setError('')
     try {
       await signIn(username, password, rememberMe)
-      playSound('success', settings.sound)
-      vibrate(HAPTIC.success, settings.haptics)
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 423 && err.remainingSeconds) {
-        setLockoutSeconds(err.remainingSeconds)
-      }
-      const msg = describeError(err)
-      setError(
-        err instanceof ApiError && err.status === 423 && err.remainingSeconds
-          ? `${msg} (${formatCountdown(err.remainingSeconds)} remaining)`
-          : msg,
-      )
-      playSound('error', settings.sound)
-      vibrate(HAPTIC.error, settings.haptics)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const demoLogin = async (demoRole: Role) => {
-    setBusy(true)
-    setError('')
-    try {
-      await signInDemo(demoRole, rememberMe)
       playSound('success', settings.sound)
       vibrate(HAPTIC.success, settings.haptics)
     } catch (err) {
@@ -409,38 +371,6 @@ export default function LoginPage() {
               </form>
 
               <div className="mt-5">
-                {demoEnabled && (
-                  <>
-                    <div className="mb-3 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void demoLogin('owner')}
-                        disabled={busy}
-                        className="min-h-[42px] rounded-xl border border-slate-200 bg-white/80 text-xs font-semibold text-slate-700 backdrop-blur-sm transition-colors hover:border-[#1868FE]/40 hover:text-[#1868FE] disabled:opacity-50 dark:border-white/15 dark:bg-white/[0.06] dark:text-navy-100 dark:hover:border-sky-400/40 dark:hover:text-sky-300"
-                      >
-                        {t('auth.ownerDemo')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void demoLogin('staff')}
-                        disabled={busy}
-                        className="min-h-[42px] rounded-xl border border-slate-200 bg-white/80 text-xs font-semibold text-slate-700 backdrop-blur-sm transition-colors hover:border-[#1868FE]/40 hover:text-[#1868FE] disabled:opacity-50 dark:border-white/15 dark:bg-white/[0.06] dark:text-navy-100 dark:hover:border-sky-400/40 dark:hover:text-sky-300"
-                      >
-                        {t('auth.staffDemo')}
-                      </button>
-                    </div>
-
-                    <div className="relative mb-3 flex items-center justify-center">
-                      <div className="w-full border-t border-slate-300/60 dark:border-white/10" />
-                      <span className="absolute px-1.5 text-[11px] font-medium text-slate-400 dark:text-navy-300">
-                        <span className="rounded bg-white/70 px-1.5 py-0.5 backdrop-blur-sm dark:bg-navy-900/80">
-                          {t('common.or')}
-                        </span>
-                      </span>
-                    </div>
-                  </>
-                )}
-
                 <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 dark:text-navy-300">
                   <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>{t('auth.secureLogin')}</span>
