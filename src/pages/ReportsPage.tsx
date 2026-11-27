@@ -1041,6 +1041,11 @@ export default function ReportsPage() {
                                 <PayIcon className="h-3 w-3" aria-hidden="true" />
                                 {t(`pay.${item.paymentMode}`)}
                               </span>
+                              {item.transactionId && (
+                                <p className="mt-0.5 font-mono text-[10px] text-navy-500 dark:text-navy-300">
+                                  TXN: {item.transactionId}
+                                </p>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2.5 text-xs font-medium text-navy-600 dark:text-navy-200">
                               <span className="inline-flex items-center gap-1">

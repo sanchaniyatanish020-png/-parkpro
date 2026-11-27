@@ -87,6 +87,7 @@ export function buildPaymentRecords({
       photo: pass.photo,
       amount: initialAmt,
       paymentMode: pass.paymentMode ?? 'cash',
+      transactionId: pass.transactionId,
       at: pass.createdAt,
       collectedBy: pass.collectedBy,
       collectedByUsername: pass.collectedByUsername,

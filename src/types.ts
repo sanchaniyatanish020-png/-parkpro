@@ -37,6 +37,7 @@ export interface Pass {
   endDate: string
   amount: number
   paymentMode?: PaymentMode
+  transactionId?: string
   collectedBy?: string
   collectedByUsername?: string
   slot?: string
@@ -70,6 +71,7 @@ export interface WalkIn {
   photo?: string
   amount: number
   paymentMode?: PaymentMode
+  transactionId?: string
   collectedBy?: string
   collectedByUsername?: string
   at: string
@@ -160,6 +162,7 @@ export interface NewPassInput {
   endDate: string
   amount: number
   paymentMode?: PaymentMode
+  transactionId?: string
   collectedBy?: string
   collectedByUsername?: string
   slot?: string
@@ -175,6 +178,7 @@ export interface NewWalkInInput {
   photo?: string
   amount: number
   paymentMode?: PaymentMode
+  transactionId?: string
 }
 
 export interface ParkedItem {
@@ -219,6 +223,7 @@ export interface TodayPaymentItem {
   photo?: string
   amount: number
   paymentMode: PaymentMode
+  transactionId?: string
   at: string
   collectedBy?: string
   collectedByUsername?: string

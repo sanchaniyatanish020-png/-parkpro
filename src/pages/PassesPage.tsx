@@ -271,7 +271,7 @@ export default function PassesPage() {
     return Object.keys(next).length === 0
   }
 
-  const submitCreate = async (): Promise<boolean> => {
+  const submitCreate = async (transactionId?: string): Promise<boolean> => {
     setCreating(true)
     try {
       const pass = await createPass({
@@ -284,6 +284,7 @@ export default function PassesPage() {
         endDate,
         amount,
         paymentMode,
+        transactionId,
         notes,
       })
       toast({
@@ -838,7 +839,7 @@ export default function PassesPage() {
           setUpiOpen(false)
           setFormOpen(true)
         }}
-        onConfirm={() => void submitCreate()}
+        onConfirm={(txId) => void submitCreate(txId)}
       />
 
       <ExportModal

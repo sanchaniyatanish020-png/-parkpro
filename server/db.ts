@@ -198,6 +198,9 @@ const passColumns = db.prepare('PRAGMA table_info(passes)').all() as { name: str
 if (!passColumns.some((col) => col.name === 'payment_mode')) {
   db.exec("ALTER TABLE passes ADD COLUMN payment_mode TEXT NOT NULL DEFAULT 'cash'")
 }
+if (!passColumns.some((col) => col.name === 'transaction_id')) {
+  db.exec('ALTER TABLE passes ADD COLUMN transaction_id TEXT')
+}
 if (!passColumns.some((col) => col.name === 'collected_by')) {
   db.exec('ALTER TABLE passes ADD COLUMN collected_by TEXT')
 }

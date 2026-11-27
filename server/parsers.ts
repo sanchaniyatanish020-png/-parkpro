@@ -39,6 +39,7 @@ export function parsePassBody(body: Record<string, unknown>, existing?: Pass): P
     endDate: isoDate(body.endDate ?? existing?.endDate, 'End date'),
     amount: Number(body.amount ?? existing?.amount ?? 0),
     paymentMode: oneOf(body.paymentMode ?? existing?.paymentMode ?? 'cash', 'Payment mode', PAYMENT_MODES) as PaymentMode,
+    transactionId: optionalStr(body.transactionId, 'Transaction ID', 80) ?? existing?.transactionId,
     slot: optionalStr(body.slot, 'Slot', 20) ?? existing?.slot,
     photo: optionalStr(body.photo, 'Photo', PHOTO_MAX) ?? existing?.photo,
     notes: optionalStr(body.notes, 'Notes', 300) ?? existing?.notes,

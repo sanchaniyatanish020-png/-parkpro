@@ -95,6 +95,7 @@ function toPass(row: Row): Pass {
     endDate: String(row.end_date),
     amount: Number(row.amount),
     paymentMode: (row.payment_mode as Pass['paymentMode']) || 'cash',
+    transactionId: row.transaction_id == null ? undefined : String(row.transaction_id),
     collectedBy: row.collected_by == null ? undefined : String(row.collected_by),
     collectedByUsername: row.collected_by_username == null ? undefined : String(row.collected_by_username),
     slot: row.slot == null ? undefined : String(row.slot),
@@ -172,12 +173,13 @@ export function getPass(id: string): Pass | null {
 export function upsertPass(pass: Pass): void {
   stmt(
     `INSERT INTO passes (id, token, name, phone, vehicle, vehicle_type, plan, start_date, end_date,
-       amount, payment_mode, collected_by, collected_by_username, slot, photo, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       amount, payment_mode, transaction_id, collected_by, collected_by_username, slot, photo, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        token = excluded.token, name = excluded.name, phone = excluded.phone, vehicle = excluded.vehicle,
        vehicle_type = excluded.vehicle_type, plan = excluded.plan, start_date = excluded.start_date,
        end_date = excluded.end_date, amount = excluded.amount, payment_mode = excluded.payment_mode,
+       transaction_id = COALESCE(excluded.transaction_id, passes.transaction_id),
        collected_by = COALESCE(excluded.collected_by, passes.collected_by),
        collected_by_username = COALESCE(excluded.collected_by_username, passes.collected_by_username),
        slot = excluded.slot, photo = excluded.photo, notes = excluded.notes, updated_at = excluded.updated_at`,
@@ -193,6 +195,7 @@ export function upsertPass(pass: Pass): void {
     pass.endDate,
     pass.amount,
     pass.paymentMode ?? 'cash',
+    pass.transactionId ?? null,
     pass.collectedBy ?? null,
     pass.collectedByUsername ?? null,
     pass.slot ?? null,

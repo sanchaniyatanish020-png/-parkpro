@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Copy, ExternalLink, QrCode, Settings2, Smartphone } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, TextInput } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
 import { QrImage } from '@/components/QrCode'
 import { useAuth } from '@/state/AuthContext'
@@ -18,7 +18,7 @@ interface UpiPaySheetProps {
   confirmLabel: string
   busy?: boolean
   onClose: () => void
-  onConfirm: () => void
+  onConfirm: (transactionId?: string) => void
 }
 
 export function UpiPaySheet({ open, amount, note, confirmLabel, busy, onClose, onConfirm }: UpiPaySheetProps) {
@@ -26,6 +26,8 @@ export function UpiPaySheet({ open, amount, note, confirmLabel, busy, onClose, o
   const { can } = useAuth()
   const { toast } = useToast()
   const [copied, setCopied] = useState<'id' | 'link' | null>(null)
+  const [txId, setTxId] = useState('')
+  const [txError, setTxError] = useState('')
 
   const vpa = normalizeUpiId(settings.upiId)
   const payee = settings.upiName.trim() || settings.ownerName.trim() || settings.siteName
@@ -33,7 +35,11 @@ export function UpiPaySheet({ open, amount, note, confirmLabel, busy, onClose, o
   const canEditSite = can('siteSettings')
 
   useEffect(() => {
-    if (!open) setCopied(null)
+    if (!open) {
+      setCopied(null)
+      setTxId('')
+      setTxError('')
+    }
   }, [open])
 
   const copy = async (text: string, which: 'id' | 'link') => {
@@ -63,7 +69,14 @@ export function UpiPaySheet({ open, amount, note, confirmLabel, busy, onClose, o
             full
             variant="success"
             loading={busy}
-            onClick={onConfirm}
+            onClick={() => {
+              const clean = txId.trim()
+              if (!clean) {
+                setTxError('Please enter the UPI Transaction ID after customer payment')
+                return
+              }
+              onConfirm(clean)
+            }}
             icon={CheckCircle2}
             className="min-h-[54px]"
           >
@@ -97,6 +110,19 @@ export function UpiPaySheet({ open, amount, note, confirmLabel, busy, onClose, o
               <QrImage value={uri} size={520} className="aspect-square rounded-lg" />
             </div>
             <p className="text-center text-xs font-medium text-navy-500 dark:text-navy-300">{t('upi.scanHint')}</p>
+
+            <TextInput
+              label="UPI Transaction ID"
+              required
+              value={txId}
+              onChange={(e) => {
+                setTxId(e.target.value)
+                if (txError) setTxError('')
+              }}
+              placeholder="e.g. 432198765432"
+              error={txError}
+              autoComplete="off"
+            />
 
             <div className="rounded-2xl bg-navy-50 px-3.5 py-3 dark:bg-white/[0.05]">
               <div className="flex items-center gap-2">
