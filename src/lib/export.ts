@@ -23,6 +23,21 @@ const loadPdf = async () => {
   return { jsPDF, autoTable }
 }
 
+function toTitleCase(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatPayMode(mode?: string): string {
+  const clean = (mode ?? 'cash').trim().toLowerCase()
+  if (clean === 'upi') return 'UPI'
+  return toTitleCase(clean)
+}
+
 export function exportCsvReport(data: ReportExportData, filename: string) {
   let headers: string[]
   let rows: (string | number)[][]
@@ -92,15 +107,15 @@ export async function exportExcelReport(data: ReportExportData, filename: string
   const passRows = data.passes.map((pass) => ({
     'Pass ID': pass.id,
     Token: pass.token,
-    Name: pass.name,
+    Name: toTitleCase(pass.name),
     Phone: pass.phone,
     Vehicle: formatPlate(pass.vehicle),
-    'Vehicle Type': pass.vehicleType.toUpperCase(),
-    Plan: pass.plan.toUpperCase(),
+    'Vehicle Type': pass.vehicleType.toLowerCase() === 'ev' ? 'EV' : toTitleCase(pass.vehicleType),
+    Plan: toTitleCase(pass.plan),
     'Start Date': formatDateShort(pass.startDate, 'en'),
     'End Date': formatDateShort(pass.endDate, 'en'),
-    'Payment Mode': (pass.paymentMode ?? 'cash').toUpperCase(),
-    'Collected By': pass.collectedBy ?? 'Admin',
+    'Payment Mode': formatPayMode(pass.paymentMode),
+    'Collected By': toTitleCase(pass.collectedBy ?? 'Admin'),
     'Amount (₹)': pass.amount,
   }))
   const passSheet = XLSX.utils.json_to_sheet(passRows.length > 0 ? passRows : [{ 'No Data': 'No passes in selected period' }])
@@ -109,12 +124,12 @@ export async function exportExcelReport(data: ReportExportData, filename: string
   // Sheet: Walk-ins
   const walkinRows = data.walkins.map((w) => ({
     'Entry ID': w.id,
-    Name: w.name,
+    Name: toTitleCase(w.name),
     Phone: w.phone,
     Vehicle: w.vehicle ? formatPlate(w.vehicle) : '—',
-    'Vehicle Type': w.vehicleType.toUpperCase(),
-    'Payment Mode': (w.paymentMode ?? 'cash').toUpperCase(),
-    'Collected By': w.collectedBy ?? 'Staff',
+    'Vehicle Type': w.vehicleType.toLowerCase() === 'ev' ? 'EV' : toTitleCase(w.vehicleType),
+    'Payment Mode': formatPayMode(w.paymentMode),
+    'Collected By': toTitleCase(w.collectedBy ?? 'Staff'),
     'Amount (₹)': w.amount,
     'Date & Time': new Date(w.at).toLocaleString('en-IN'),
   }))
