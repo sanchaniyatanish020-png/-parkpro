@@ -59,6 +59,7 @@ export default function SettingsPage() {
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -181,9 +182,16 @@ export default function SettingsPage() {
             {role === 'owner' ? t('auth.owner') : t('auth.gateStaff')} · {settings.siteName}
           </p>
         </div>
-        <Badge tone="amber">{role === 'owner' ? t('panel.admin') : t('panel.scanner')}</Badge>
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className="shrink-0 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 transition hover:bg-white/25 active:scale-95"
+        >
+          {t('common.details')}
+        </button>
       </div>
 
+      {detailsOpen && (
       <Group title={t('settings.profile')} icon={UserRound}>
         <div className="py-3">
           <TextInput
@@ -243,6 +251,7 @@ export default function SettingsPage() {
           />
         </div>
       </Group>
+      )}
 
       <Group title={t('settings.appearance')} icon={Palette}>
         <div className="py-3">
