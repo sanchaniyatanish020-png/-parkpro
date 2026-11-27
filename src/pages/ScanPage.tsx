@@ -219,7 +219,7 @@ export default function ScanPage() {
       if (cancelled) return
       const video = videoRef.current
       const now = Date.now()
-      if (timestamp - last < 130 || !video || video.readyState < 2 || !video.videoWidth || now < cooldownRef.current) {
+      if (timestamp - last < 100 || !video || video.readyState < 2 || !video.videoWidth || now < cooldownRef.current) {
         loopRef.current = requestAnimationFrame(tick)
         return
       }
@@ -228,10 +228,11 @@ export default function ScanPage() {
       try {
         const width = video.videoWidth
         const height = video.videoHeight
-        const crop = Math.min(width, height) * 0.78
-        canvas.width = 480
-        canvas.height = 480
-        context?.drawImage(video, (width - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, 480, 480)
+        const crop = Math.min(width, height) * 0.85
+        const size = 640
+        canvas.width = size
+        canvas.height = size
+        context?.drawImage(video, (width - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, size, size)
 
         let text: string | null = null
         if (detector) {
@@ -243,8 +244,8 @@ export default function ScanPage() {
           }
         }
         if (!text && context) {
-          const image = context.getImageData(0, 0, 480, 480)
-          text = jsQR(image.data, 480, 480, { inversionAttempts: 'attemptBoth' })?.data ?? null
+          const image = context.getImageData(0, 0, size, size)
+          text = jsQR(image.data, size, size, { inversionAttempts: 'attemptBoth' })?.data ?? null
         }
 
         if (text && !cancelled) {
