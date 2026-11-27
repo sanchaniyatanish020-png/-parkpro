@@ -234,7 +234,24 @@ export default function LoginPage() {
         </aside>
 
         {/* Form side */}
-        <div className="relative flex min-h-dvh flex-col lg:bg-[#F7FAFF] dark:lg:bg-navy-950">
+        <div className="relative flex min-h-dvh flex-col overflow-hidden lg:bg-[#F4F8FF] dark:lg:bg-navy-950">
+          {/* Subtle decorative shapes on desktop form panel */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 -top-24 hidden h-72 w-72 rounded-full bg-gradient-to-br from-[#1868FE]/15 to-sky-300/20 blur-2xl lg:block dark:from-[#1868FE]/10 dark:to-sky-500/10"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-24 -right-16 hidden h-80 w-80 rounded-full bg-gradient-to-tr from-[#1868FE]/15 to-blue-200/25 blur-2xl lg:block dark:from-[#1868FE]/10 dark:to-blue-500/10"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-10 left-8 hidden h-20 w-20 opacity-35 lg:block dark:opacity-15"
+            style={{
+              backgroundImage: 'radial-gradient(#1868FE 1.5px, transparent 1.5px)',
+              backgroundSize: '12px 12px',
+            }}
+          />
           <header className="flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 lg:justify-end lg:px-8 lg:pt-6">
             <div className="flex items-center gap-2.5 lg:hidden">
               <img
