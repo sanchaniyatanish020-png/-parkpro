@@ -190,13 +190,6 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff]/92 via-[#f4f8ff]/65 to-transparent" />
 
           <div className="relative z-10 flex items-center gap-3">
-            <img
-              src="/icons/icon-192.png"
-              alt=""
-              width={40}
-              height={40}
-              className="h-10 w-10 rounded-xl shadow-sm ring-1 ring-slate-200/80"
-            />
             <div className="leading-tight">
               <p className="font-display text-lg font-bold tracking-tight text-[#0B1F3A]">Poriya Group</p>
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -254,13 +247,6 @@ export default function LoginPage() {
           />
           <header className="flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 lg:justify-end lg:px-8 lg:pt-6">
             <div className="flex items-center gap-2.5 lg:hidden">
-              <img
-                src="/icons/icon-192.png"
-                alt=""
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded-xl shadow-sm ring-1 ring-white/80 dark:ring-white/20"
-              />
               <div className="leading-tight">
                 <p className="font-display text-base font-bold tracking-tight text-[#0B1F3A] dark:text-white">
                   Poriya Group
