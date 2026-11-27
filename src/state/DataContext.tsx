@@ -60,6 +60,10 @@ interface DataContextValue {
     name?: string
     capacity?: number
     monthlyRate?: number
+    rateCar?: number
+    rateSuv?: number
+    rateBike?: number
+    rateEv?: number
     upiId?: string
     upiName?: string
     remindersEnabled?: boolean
@@ -164,6 +168,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       siteName: payload.site.name,
       capacity: payload.site.capacity,
       monthlyRate: payload.site.monthlyRate ?? 1800,
+      rateCar: payload.site.rateCar ?? 1800,
+      rateSuv: payload.site.rateSuv ?? 1800,
+      rateBike: payload.site.rateBike ?? 1200,
+      rateEv: payload.site.rateEv ?? 1800,
       upiId: payload.site.upiId ?? '',
       upiName: payload.site.upiName ?? '',
       remindersEnabled: payload.site.remindersEnabled ?? false,
@@ -366,7 +374,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const renewPass = useCallback(
     async (pass: Pass, plan: PlanId, payment: PayMode): Promise<Pass> => {
       const now = new Date()
-      const { end, price } = renewMonthEndAndPrice(pass.endDate, now, settings.monthlyRate)
+      const vehicleRate =
+        pass.vehicleType === 'suv'
+          ? settings.rateSuv
+          : pass.vehicleType === 'bike'
+            ? settings.rateBike
+            : pass.vehicleType === 'ev'
+              ? settings.rateEv
+              : settings.rateCar
+      const { end, price } = renewMonthEndAndPrice(pass.endDate, now, vehicleRate || settings.monthlyRate)
       const updated: Pass = {
         ...pass,
         plan,
@@ -392,7 +408,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })
       return result.pass
     },
-    [addLog, collectorName, collectorUsername, settings.monthlyRate],
+    [addLog, collectorName, collectorUsername, settings.monthlyRate, settings.rateCar, settings.rateSuv, settings.rateBike, settings.rateEv],
   )
 
   const deletePass = useCallback(

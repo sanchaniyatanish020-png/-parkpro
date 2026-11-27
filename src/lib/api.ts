@@ -91,6 +91,10 @@ export interface SitePayload {
   name: string
   capacity: number
   monthlyRate: number
+  rateCar: number
+  rateSuv: number
+  rateBike: number
+  rateEv: number
   upiId: string
   upiName: string
   remindersEnabled: boolean

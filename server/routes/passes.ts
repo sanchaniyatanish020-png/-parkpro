@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authenticate, requirePermission } from '../auth'
 import { parsePassBody } from '../parsers'
-import { deletePass, getPass, listPasses, tokenExists, upsertPass } from '../repository'
+import { deletePass, findActivePassByPhone, findActivePassByVehicle, getPass, listPasses, tokenExists, upsertPass } from '../repository'
 import { asObject, fail } from '../validate'
 
 const router = Router()
@@ -29,6 +29,12 @@ router.post('/', requirePermission('managePasses'), (req, res) => {
   pass.collectedBy = req.user!.name
   pass.collectedByUsername = req.user!.username
 
+  // Duplicate pass prevention
+  const dupPhone = findActivePassByPhone(pass.phone)
+  if (dupPhone) fail(409, `An active pass already exists for phone number ${pass.phone} (Pass: ${dupPhone.token})`)
+  const dupVehicle = findActivePassByVehicle(pass.vehicle)
+  if (dupVehicle) fail(409, `An active pass already exists for vehicle ${pass.vehicle} (Pass: ${dupVehicle.token})`)
+
   upsertPass(pass)
   res.status(201).json({ pass })
 })
@@ -41,6 +47,13 @@ router.patch('/:id', requirePermission('managePasses'), (req, res) => {
   if (pass.token !== existing.token) {
     if (tokenExists(pass.token, existing.id)) fail(409, 'Pass code already in use')
   }
+
+  // Duplicate pass prevention (excluding the current pass itself)
+  const dupPhone = findActivePassByPhone(pass.phone, existing.id)
+  if (dupPhone) fail(409, `An active pass already exists for phone number ${pass.phone} (Pass: ${dupPhone.token})`)
+  const dupVehicle = findActivePassByVehicle(pass.vehicle, existing.id)
+  if (dupVehicle) fail(409, `An active pass already exists for vehicle ${pass.vehicle} (Pass: ${dupVehicle.token})`)
+
   pass.collectedBy = existing.collectedBy ?? req.user!.name
   pass.collectedByUsername = existing.collectedByUsername ?? req.user!.username
   upsertPass(pass)

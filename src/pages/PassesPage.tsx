@@ -61,7 +61,6 @@ import {
   planLabel,
   proratedMonthlyPrice,
   validPhone,
-  cn,
 } from '@/lib/utils'
 
 type Filter = 'all' | PassStatus
@@ -84,16 +83,25 @@ export default function PassesPage() {
   const { can } = useAuth()
   const canManagePasses = can('managePasses')
   const canExportReports = can('reports')
-  const canEditRate = can('siteSettings')
+  const canEditRate = can('siteSettings') || can('managePasses')
   const { passes, ready, createPass, refresh, updateSite, reminders, markReminder } = useData()
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
 
-  const monthlyRate = settings.monthlyRate ?? 1800
+  const rateForVehicle = (vt: VehicleType): number => {
+    if (vt === 'suv') return settings.rateSuv ?? 1800
+    if (vt === 'bike') return settings.rateBike ?? 1200
+    if (vt === 'ev') return settings.rateEv ?? 1800
+    return settings.rateCar ?? settings.monthlyRate ?? 1800
+  }
+
   const [rateOpen, setRateOpen] = useState(false)
-  const [rateDraft, setRateDraft] = useState(String(monthlyRate))
+  const [rateCarDraft, setRateCarDraft] = useState(String(settings.rateCar ?? 1800))
+  const [rateSuvDraft, setRateSuvDraft] = useState(String(settings.rateSuv ?? 1800))
+  const [rateBikeDraft, setRateBikeDraft] = useState(String(settings.rateBike ?? 1200))
+  const [rateEvDraft, setRateEvDraft] = useState(String(settings.rateEv ?? 1800))
   const [savingRate, setSavingRate] = useState(false)
 
   const [query, setQuery] = useState('')
@@ -190,7 +198,7 @@ export default function PassesPage() {
     setPlan('monthly')
     setStartDate(start)
     setEndDate(isoDate(new Date(planEndDate('monthly', start))))
-    setAmount(proratedMonthlyPrice(start, settings.monthlyRate))
+    setAmount(proratedMonthlyPrice(start, rateForVehicle('car')))
     setPaymentMode('cash')
     setNotes('')
     setErrors({})
@@ -201,35 +209,61 @@ export default function PassesPage() {
     setStartDate(next)
     if (next) {
       setEndDate(isoDate(new Date(planEndDate(plan, next))))
-      setAmount(proratedMonthlyPrice(next, settings.monthlyRate))
+      setAmount(proratedMonthlyPrice(next, rateForVehicle(vehicleType)))
     }
   }
 
   const openRateEditor = () => {
-    setRateDraft(String(monthlyRate))
+    setRateCarDraft(String(settings.rateCar ?? 1800))
+    setRateSuvDraft(String(settings.rateSuv ?? 1800))
+    setRateBikeDraft(String(settings.rateBike ?? 1200))
+    setRateEvDraft(String(settings.rateEv ?? 1800))
     setRateOpen(true)
   }
 
   const saveRate = async () => {
-    const value = Math.round(Number(rateDraft))
-    if (!Number.isFinite(value) || value < 1) {
+    const rateCar = Math.round(Number(rateCarDraft))
+    const rateSuv = Math.round(Number(rateSuvDraft))
+    const rateBike = Math.round(Number(rateBikeDraft))
+    const rateEv = Math.round(Number(rateEvDraft))
+    if (
+      !Number.isFinite(rateCar) || rateCar < 1 ||
+      !Number.isFinite(rateSuv) || rateSuv < 1 ||
+      !Number.isFinite(rateBike) || rateBike < 1 ||
+      !Number.isFinite(rateEv) || rateEv < 1
+    ) {
       toast({ message: t('passes.rateInvalid'), tone: 'error' })
       return
     }
     setSavingRate(true)
-    const ok = await updateSite({ monthlyRate: value })
+    const ok = await updateSite({ monthlyRate: rateCar, rateCar, rateSuv, rateBike, rateEv })
     setSavingRate(false)
     if (!ok) return
-    if (formOpen) setAmount(proratedMonthlyPrice(startDate, value))
+    if (formOpen) {
+      const nextRate = vehicleType === 'suv' ? rateSuv : vehicleType === 'bike' ? rateBike : vehicleType === 'ev' ? rateEv : rateCar
+      setAmount(proratedMonthlyPrice(startDate, nextRate))
+    }
     setRateOpen(false)
-    toast({ message: t('passes.rateUpdated', { amount: formatMoney(value, lang) }), tone: 'success' })
+    toast({ message: 'Monthly pass rates updated', tone: 'success' })
   }
 
   const validateForm = () => {
     const next: typeof errors = {}
     if (!name.trim()) next.name = t('walkin.requiredName')
-    if (!validPhone(phone)) next.phone = t('walkin.requiredPhone')
-    if (normalizePlate(vehicle).length < 6) next.vehicle = t('passes.invalidPlate')
+    if (!validPhone(phone)) {
+      next.phone = t('walkin.requiredPhone')
+    } else {
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const dupPhone = passes.find((p) => daysLeft(p.endDate) >= 0 && p.phone.replace(/\D/g, '').slice(-10) === cleanPhone)
+      if (dupPhone) next.phone = `Active pass already exists for this phone (${dupPhone.token})`
+    }
+    const cleanPlate = normalizePlate(vehicle)
+    if (cleanPlate.length < 6) {
+      next.vehicle = t('passes.invalidPlate')
+    } else {
+      const dupVehicle = passes.find((p) => daysLeft(p.endDate) >= 0 && normalizePlate(p.vehicle) === cleanPlate)
+      if (dupVehicle) next.vehicle = `Active pass already exists for ${formatPlate(cleanPlate)} (${dupVehicle.token})`
+    }
     if (!startDate || !endDate || new Date(endDate).getTime() < new Date(startDate).getTime()) {
       next.dates = t('passes.invalidDates')
     }
@@ -260,8 +294,8 @@ export default function PassesPage() {
       setFormOpen(false)
       navigate(`/admin/passes/${pass.id}`)
       return true
-    } catch {
-      toast({ message: t('toast.error'), tone: 'error' })
+    } catch (error) {
+      toast({ message: error instanceof Error ? error.message : t('toast.error'), tone: 'error' })
       return false
     } finally {
       setCreating(false)
@@ -334,12 +368,12 @@ export default function PassesPage() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy-200">{t('passes.rateTitle')}</p>
-              <p className="mt-0.5 font-display text-[26px] font-bold leading-none tabular-nums">
-                {formatMoney(monthlyRate, lang)}
-              </p>
-              <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-navy-300">
-                {t('passes.rateToday', { amount: formatMoney(proratedMonthlyPrice(today, monthlyRate), lang) })}
-              </p>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-white">
+                <span>{t('vehicle_car')}: <span className="font-mono text-amber-300">{formatMoney(settings.rateCar ?? 1800, lang)}</span></span>
+                <span>{t('vehicle_suv')}: <span className="font-mono text-amber-300">{formatMoney(settings.rateSuv ?? 1800, lang)}</span></span>
+                <span>{t('vehicle_bike')}: <span className="font-mono text-amber-300">{formatMoney(settings.rateBike ?? 1200, lang)}</span></span>
+                <span>{t('vehicle_ev')}: <span className="font-mono text-amber-300">{formatMoney(settings.rateEv ?? 1800, lang)}</span></span>
+              </div>
             </div>
             {canEditRate ? (
               <button
@@ -562,7 +596,10 @@ export default function PassesPage() {
             <Segmented
               ariaLabel={t('passes.type')}
               value={vehicleType}
-              onChange={setVehicleType}
+              onChange={(vt) => {
+                setVehicleType(vt)
+                setAmount(proratedMonthlyPrice(startDate, rateForVehicle(vt)))
+              }}
               options={VEHICLE_OPTIONS.map((option) => ({ id: option.id, label: t(option.label) }))}
             />
           </div>
@@ -643,7 +680,7 @@ export default function PassesPage() {
         open={rateOpen}
         onClose={() => (savingRate ? undefined : setRateOpen(false))}
         title={t('passes.rateTitle')}
-        subtitle={t('passes.rateSubtitle')}
+        subtitle="Set monthly pass rates for each vehicle type"
         footer={
           <Button
             full
@@ -658,56 +695,51 @@ export default function PassesPage() {
         }
       >
         <div className="space-y-4">
-          <div className="rounded-2xl border border-blue-200/70 bg-blue-50/70 p-4 dark:border-blue-500/25 dark:bg-blue-500/10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1E40AF] dark:text-blue-300">
-              {t('passes.ratePreview')}
-            </p>
-            <p className="mt-1.5 font-display text-3xl font-bold leading-none tabular-nums text-navy-900 dark:text-white">
-              {formatMoney(Math.max(1, Math.round(Number(rateDraft) || 0)), lang)}
-              <span className="ml-1 text-sm font-semibold text-navy-500 dark:text-navy-300">/ {t('plan_monthly')}</span>
-            </p>
-            <p className="mt-1.5 text-xs text-navy-600 dark:text-navy-300">
-              {t('passes.rateToday', {
-                amount: formatMoney(proratedMonthlyPrice(today, Math.max(1, Math.round(Number(rateDraft) || 0))), lang),
-              })}
-            </p>
-          </div>
-
-          <TextInput
-            label={t('passes.rateAmountLabel')}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={10}
-            value={rateDraft}
-            onChange={(event) => setRateDraft(event.target.value)}
-            icon={IndianRupee}
-            hint={t('passes.rateHint')}
-            required
-          />
-
-          <div>
-            <p className="label">{t('passes.ratePresets')}</p>
-            <div className="flex flex-wrap gap-2">
-              {[1500, 1800, 2000, 2500, 3000].map((value) => {
-                const active = Number(rateDraft) === value
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRateDraft(String(value))}
-                    className={cn(
-                      'min-h-[42px] rounded-xl border-2 px-3.5 font-mono text-sm font-bold transition-colors',
-                      active
-                        ? 'border-[#1868FE] bg-blue-50 text-[#1868FE] dark:bg-blue-500/15 dark:text-blue-300'
-                        : 'border-navy-200 text-navy-700 hover:border-navy-300 dark:border-white/15 dark:text-navy-100',
-                    )}
-                  >
-                    {formatMoney(value, lang)}
-                  </button>
-                )
-              })}
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput
+              label={`${t('vehicle_car')} (₹)`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={50}
+              value={rateCarDraft}
+              onChange={(event) => setRateCarDraft(event.target.value)}
+              icon={Car}
+              required
+            />
+            <TextInput
+              label={`${t('vehicle_suv')} (₹)`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={50}
+              value={rateSuvDraft}
+              onChange={(event) => setRateSuvDraft(event.target.value)}
+              icon={Truck}
+              required
+            />
+            <TextInput
+              label={`${t('vehicle_bike')} (₹)`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={50}
+              value={rateBikeDraft}
+              onChange={(event) => setRateBikeDraft(event.target.value)}
+              icon={Bike}
+              required
+            />
+            <TextInput
+              label={`${t('vehicle_ev')} (₹)`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={50}
+              value={rateEvDraft}
+              onChange={(event) => setRateEvDraft(event.target.value)}
+              icon={Zap}
+              required
+            />
           </div>
 
           <p className="rounded-xl bg-navy-50 px-3.5 py-2.5 text-xs leading-relaxed text-navy-500 dark:bg-white/[0.04] dark:text-navy-300">

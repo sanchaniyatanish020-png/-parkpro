@@ -13,11 +13,15 @@ router.get('/', (_req, res) => {
   res.json({ site: { ...getSite(), whatsappConfigured } })
 })
 
-router.patch('/', requirePermission('siteSettings'), (req, res) => {
+router.patch('/', requirePermission('siteSettings', 'managePasses'), (req, res) => {
   const body = asObject(req.body)
   const name = optionalStr(body.name, 'Site name', 80)
   const capacity = body.capacity == null ? undefined : num(body.capacity, 'Capacity', { min: 1, max: 100_000 })
   const monthlyRate = body.monthlyRate == null ? undefined : num(body.monthlyRate, 'Monthly pass amount', { min: 1, max: 1_000_000 })
+  const rateCar = body.rateCar == null ? undefined : num(body.rateCar, 'Car rate', { min: 1, max: 1_000_000 })
+  const rateSuv = body.rateSuv == null ? undefined : num(body.rateSuv, 'SUV rate', { min: 1, max: 1_000_000 })
+  const rateBike = body.rateBike == null ? undefined : num(body.rateBike, 'Bike rate', { min: 1, max: 1_000_000 })
+  const rateEv = body.rateEv == null ? undefined : num(body.rateEv, 'EV rate', { min: 1, max: 1_000_000 })
   const upiId =
     body.upiId === undefined ? undefined : str(body.upiId, 'UPI ID', { optional: true, max: 80 }).toLowerCase()
   if (upiId && !VPA_PATTERN.test(upiId)) {
@@ -45,6 +49,10 @@ router.patch('/', requirePermission('siteSettings'), (req, res) => {
         name,
         capacity,
         monthlyRate,
+        rateCar,
+        rateSuv,
+        rateBike,
+        rateEv,
         upiId,
         upiName,
         remindersEnabled,

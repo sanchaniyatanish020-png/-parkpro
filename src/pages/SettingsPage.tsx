@@ -5,7 +5,6 @@ import {
   Check,
   ChevronRight,
   CloudOff,
-  IndianRupee,
   KeyRound,
   Languages,
   LogOut,
@@ -263,20 +262,6 @@ export default function SettingsPage() {
             onBlur={canEditSite ? () => void updateSite({ capacity: settings.capacity }) : undefined}
             hint={canEditSite ? t('settings.capacityHelp') : undefined}
             disabled={!canEditSite}
-          />
-        </div>
-        <div className="pb-3 pt-1">
-          <TextInput
-            label={t('settings.monthlyRate')}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={String(settings.monthlyRate ?? 1800)}
-            onChange={(event) => update({ monthlyRate: Math.max(1, Number(event.target.value) || 1) })}
-            onBlur={canEditSite ? () => void updateSite({ monthlyRate: settings.monthlyRate }) : undefined}
-            hint={canEditSite ? t('settings.monthlyRateHelp') : undefined}
-            disabled={!canEditSite}
-            icon={IndianRupee}
           />
         </div>
         <div className="pb-3 pt-1">

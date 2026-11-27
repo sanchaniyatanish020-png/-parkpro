@@ -30,6 +30,10 @@ db.exec(`
     name TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 120,
     monthly_rate INTEGER NOT NULL DEFAULT 1800,
+    rate_car INTEGER NOT NULL DEFAULT 1800,
+    rate_suv INTEGER NOT NULL DEFAULT 1800,
+    rate_bike INTEGER NOT NULL DEFAULT 1200,
+    rate_ev INTEGER NOT NULL DEFAULT 1800,
     upi_id TEXT NOT NULL DEFAULT '',
     upi_name TEXT NOT NULL DEFAULT '',
     reminders_enabled INTEGER NOT NULL DEFAULT 0,
@@ -194,6 +198,18 @@ if (!walkinColumns.some((col) => col.name === 'collected_by_username')) {
 const siteColumns = db.prepare('PRAGMA table_info(site)').all() as { name: string }[]
 if (!siteColumns.some((col) => col.name === 'monthly_rate')) {
   db.exec('ALTER TABLE site ADD COLUMN monthly_rate INTEGER NOT NULL DEFAULT 1800')
+}
+if (!siteColumns.some((col) => col.name === 'rate_car')) {
+  db.exec('ALTER TABLE site ADD COLUMN rate_car INTEGER NOT NULL DEFAULT 1800')
+}
+if (!siteColumns.some((col) => col.name === 'rate_suv')) {
+  db.exec('ALTER TABLE site ADD COLUMN rate_suv INTEGER NOT NULL DEFAULT 1800')
+}
+if (!siteColumns.some((col) => col.name === 'rate_bike')) {
+  db.exec('ALTER TABLE site ADD COLUMN rate_bike INTEGER NOT NULL DEFAULT 1200')
+}
+if (!siteColumns.some((col) => col.name === 'rate_ev')) {
+  db.exec('ALTER TABLE site ADD COLUMN rate_ev INTEGER NOT NULL DEFAULT 1800')
 }
 if (!siteColumns.some((col) => col.name === 'upi_id')) {
   db.exec("ALTER TABLE site ADD COLUMN upi_id TEXT NOT NULL DEFAULT ''")

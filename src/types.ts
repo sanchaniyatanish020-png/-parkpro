@@ -103,6 +103,10 @@ export interface AppSettings {
   rememberDevice: boolean
   capacity: number
   monthlyRate: number
+  rateCar: number
+  rateSuv: number
+  rateBike: number
+  rateEv: number
   upiId: string
   upiName: string
   remindersEnabled: boolean

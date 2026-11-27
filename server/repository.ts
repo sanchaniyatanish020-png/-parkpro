@@ -20,6 +20,10 @@ export interface SiteRecord {
   name: string
   capacity: number
   monthlyRate: number
+  rateCar: number
+  rateSuv: number
+  rateBike: number
+  rateEv: number
   upiId: string
   upiName: string
   remindersEnabled: boolean
@@ -284,6 +288,26 @@ export function recordReminder(input: {
   return toReminder(row)
 }
 
+/** Returns the first active pass (end_date in future) with the given phone, excluding a pass id. */
+export function findActivePassByPhone(phone: string, excludeId?: string): Pass | null {
+  const clean = phone.trim().replace(/\D/g, '').slice(-10)
+  if (!clean) return null
+  const row = excludeId
+    ? (stmt("SELECT * FROM passes WHERE phone = ? AND end_date >= date('now') AND id <> ? LIMIT 1").get(clean, excludeId) as Row | undefined)
+    : (stmt("SELECT * FROM passes WHERE phone = ? AND end_date >= date('now') LIMIT 1").get(clean) as Row | undefined)
+  return row ? toPass(row) : null
+}
+
+/** Returns the first active pass (end_date in future) with the given vehicle plate, excluding a pass id. */
+export function findActivePassByVehicle(vehicle: string, excludeId?: string): Pass | null {
+  const plate = vehicle.trim().toUpperCase().replace(/[\s-]/g, '')
+  if (!plate) return null
+  const row = excludeId
+    ? (stmt("SELECT * FROM passes WHERE vehicle = ? AND end_date >= date('now') AND id <> ? LIMIT 1").get(plate, excludeId) as Row | undefined)
+    : (stmt("SELECT * FROM passes WHERE vehicle = ? AND end_date >= date('now') LIMIT 1").get(plate) as Row | undefined)
+  return row ? toPass(row) : null
+}
+
 export function tokenExists(token: string, excludeId?: string): boolean {
   const row = excludeId
     ? stmt('SELECT 1 FROM passes WHERE token = ? AND id <> ?').get(token, excludeId)
@@ -413,13 +437,17 @@ export function clearLogs(): void {
 
 export function getSite(): SiteRecord {
   const row = stmt(
-    'SELECT name, capacity, monthly_rate, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang FROM site WHERE id = 1',
+    'SELECT name, capacity, monthly_rate, rate_car, rate_suv, rate_bike, rate_ev, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang FROM site WHERE id = 1',
   ).get() as Row | undefined
   if (!row) {
     return {
       name: 'Riverfront Parking',
       capacity: 120,
       monthlyRate: 1800,
+      rateCar: 1800,
+      rateSuv: 1800,
+      rateBike: 1200,
+      rateEv: 1800,
       upiId: '',
       upiName: '',
       remindersEnabled: false,
@@ -432,6 +460,10 @@ export function getSite(): SiteRecord {
     name: String(row.name),
     capacity: Number(row.capacity),
     monthlyRate: Number(row.monthly_rate ?? 1800) || 1800,
+    rateCar: Number(row.rate_car ?? 1800) || 1800,
+    rateSuv: Number(row.rate_suv ?? 1800) || 1800,
+    rateBike: Number(row.rate_bike ?? 1200) || 1200,
+    rateEv: Number(row.rate_ev ?? 1800) || 1800,
     upiId: String(row.upi_id ?? ''),
     upiName: String(row.upi_name ?? ''),
     remindersEnabled: Boolean(Number(row.reminders_enabled ?? 0)),
@@ -449,6 +481,10 @@ export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
     name: patch.name?.trim() || current.name,
     capacity: patch.capacity && patch.capacity > 0 ? Math.round(patch.capacity) : current.capacity,
     monthlyRate: patch.monthlyRate && patch.monthlyRate > 0 ? Math.round(patch.monthlyRate) : current.monthlyRate,
+    rateCar: patch.rateCar && patch.rateCar > 0 ? Math.round(patch.rateCar) : current.rateCar,
+    rateSuv: patch.rateSuv && patch.rateSuv > 0 ? Math.round(patch.rateSuv) : current.rateSuv,
+    rateBike: patch.rateBike && patch.rateBike > 0 ? Math.round(patch.rateBike) : current.rateBike,
+    rateEv: patch.rateEv && patch.rateEv > 0 ? Math.round(patch.rateEv) : current.rateEv,
     upiId: patch.upiId === undefined ? current.upiId : patch.upiId.trim().toLowerCase(),
     upiName: patch.upiName === undefined ? current.upiName : patch.upiName.trim(),
     remindersEnabled: patch.remindersEnabled === undefined ? current.remindersEnabled : patch.remindersEnabled,
@@ -458,10 +494,11 @@ export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
     whatsappLang: patch.whatsappLang === undefined ? current.whatsappLang : patch.whatsappLang.trim() || 'en',
   }
   stmt(
-    `INSERT INTO site (id, name, capacity, monthly_rate, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO site (id, name, capacity, monthly_rate, rate_car, rate_suv, rate_bike, rate_ev, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name, capacity = excluded.capacity, monthly_rate = excluded.monthly_rate,
+       rate_car = excluded.rate_car, rate_suv = excluded.rate_suv, rate_bike = excluded.rate_bike, rate_ev = excluded.rate_ev,
        upi_id = excluded.upi_id, upi_name = excluded.upi_name,
        reminders_enabled = excluded.reminders_enabled, reminder_days = excluded.reminder_days,
        whatsapp_template = excluded.whatsapp_template, whatsapp_lang = excluded.whatsapp_lang,
@@ -470,6 +507,10 @@ export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
     next.name,
     next.capacity,
     next.monthlyRate,
+    next.rateCar,
+    next.rateSuv,
+    next.rateBike,
+    next.rateEv,
     next.upiId,
     next.upiName,
     next.remindersEnabled ? 1 : 0,
