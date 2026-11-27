@@ -1,5 +1,5 @@
 import type { Pass, ReminderWindowType } from '@/types'
-import { formatDate, formatPlate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
 export interface WhatsappCustomerItem {
   pass: Pass
@@ -51,74 +51,61 @@ export function classifyExpiryWindow(daysRemaining: number): ReminderWindowType 
 export function buildWhatsappTemplate(
   pass: Pass,
   windowType: ReminderWindowType,
-  siteName: string,
+  _siteName: string,
   lang: 'en' | 'hi' | 'gu' = 'en',
 ): string {
   const customerName = pass.name?.trim() || 'Valued Customer'
-  const vehicleNumber = formatPlate(pass.vehicle)
-  const passType = pass.plan ? pass.plan.replace('_', ' ').toUpperCase() : 'MONTHLY'
   const expiryDate = formatDate(pass.endDate, lang)
 
   if (windowType === '3_days') {
     return [
-      `નમસ્તે ${customerName}!`,
+      `નમસ્તે [${customerName}] !`,
       ``,
       `તમારો પાર્કિંગ પાસ ૩ દિવસમાં સમાપ્ત થવાનો છે.`,
-      `- વાહન નંબર: ${vehicleNumber}`,
-      `- પાસ પ્રકાર: ${passType}`,
-      `- સમાપ્તિ તારીખ: ${expiryDate}`,
+      `* સમાપ્તિ તારીખ: ${expiryDate}`,
       ``,
       `કોઈપણ અડચણ વિના પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
       ``,
       `આભાર!`,
-      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   if (windowType === '1_day') {
     return [
-      `નમસ્તે ${customerName}!`,
+      `નમસ્તે [${customerName}] !`,
       ``,
-      `તાત્કાલિક સૂચના: તમારો પાર્કિંગ પાસ આવતીકાલે સમાપ્ત થઈ જશે!`,
-      `- વાહન નંબર: ${vehicleNumber}`,
-      `- પાસ પ્રકાર: ${passType}`,
-      `- સમાપ્તિ તારીખ: ${expiryDate}`,
+      `તમારો પાર્કિંગ પાસ આવતીકાલે સમાપ્ત થવાનો છે.`,
+      `* સમાપ્તિ તારીખ: ${expiryDate}`,
       ``,
-      `ગેટ પર સરળ એન્ટ્રી અને એક્ઝિટ માટે કૃપા કરીને આજે જ તમારો પાસ રિન્યુ કરાવો.`,
+      `કોઈપણ અડચણ વિના પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
       ``,
       `આભાર!`,
-      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   if (windowType === 'today') {
     return [
-      `નમસ્તે ${customerName}!`,
+      `નમસ્તે [${customerName}] !`,
       ``,
-      `અંતિમ સૂચના: તમારો પાર્કિંગ પાસ આજે સમાપ્ત થઈ રહ્યો છે!`,
-      `- વાહન નંબર: ${vehicleNumber}`,
-      `- પાસ પ્રકાર: ${passType}`,
-      `- સમાપ્તિ તારીખ: ${expiryDate} (આજે)`,
+      `તમારો પાર્કિંગ પાસ આજે સમાપ્ત થઈ રહ્યો છે.`,
+      `* સમાપ્તિ તારીખ: ${expiryDate} (આજે)`,
       ``,
-      `દૈનિક પાર્કિંગ ચાર્જ કે ગેટ પર વિલંબ ટાળવા માટે કૃપા કરીને તરત જ તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
+      `કોઈપણ અડચણ વિના પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
       ``,
       `આભાર!`,
-      `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
     ].join('\n')
   }
 
   // Pass already expired
   return [
-    `નમસ્તે ${customerName}!`,
+    `નમસ્તે [${customerName}] !`,
     ``,
-    `સૂચના: તમારો પાર્કિંગ પાસ ${expiryDate} ના રોજ સમાપ્ત થઈ ગયો છે.`,
-    `- વાહન નંબર: ${vehicleNumber}`,
-    `- પાસ પ્રકાર: ${passType}`,
+    `તમારો પાર્કિંગ પાસ સમાપ્ત થઈ ગયો છે.`,
+    `* સમાપ્તિ તારીખ: ${expiryDate}`,
     ``,
-    `અમારી પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને વહેલી તકે તમારો પાસ રિન્યુ કરાવો.`,
+    `કોઈપણ અડચણ વિના પાર્કિંગ સુવિધાનો ઉપયોગ ચાલુ રાખવા માટે કૃપા કરીને તમારો પાર્કિંગ પાસ રિન્યુ કરાવો.`,
     ``,
     `આભાર!`,
-    `${siteName || 'ParkPro'} પાર્કિંગ મેનેજમેન્ટ`,
   ].join('\n')
 }
 
