@@ -18,7 +18,6 @@ import {
   Sun,
   Type,
   UserRound,
-  UsersRound,
   Wifi,
   WifiOff,
 } from 'lucide-react'
@@ -29,7 +28,6 @@ import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
 import { Avatar, Badge, Button, Segmented, SelectInput, TextInput, Toggle } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
-import { StaffTeamSection } from '@/components/StaffTeamSection'
 import { StaffLeaveSection } from '@/components/StaffLeaveSection'
 import { LANG_OPTIONS } from '@/lib/i18n'
 import { isValidUpiId, normalizeUpiId } from '@/lib/upi'
@@ -245,12 +243,6 @@ export default function SettingsPage() {
           />
         </div>
       </Group>
-
-      {isOwner && (
-        <Group id="staff" title={t('settings.staffTeam')} icon={UsersRound}>
-          <StaffTeamSection online={online} />
-        </Group>
-      )}
 
       <Group title={t('settings.appearance')} icon={Palette}>
         <div className="py-3">
