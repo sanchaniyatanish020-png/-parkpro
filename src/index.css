@@ -157,6 +157,9 @@ input:autofill {
   .btn-navy {
     @apply btn bg-navy-900 text-white hover:bg-navy-800;
   }
+  .btn-success {
+    @apply btn bg-gradient-to-r from-[#16A34A] to-[#22C55E] text-white shadow-lg shadow-green-500/25 hover:from-[#15803D] hover:to-[#16A34A];
+  }
   .dark .btn-navy {
     @apply bg-white text-navy-900 hover:bg-navy-50;
   }

@@ -20,6 +20,25 @@ export interface SiteRecord {
   name: string
   capacity: number
   monthlyRate: number
+  upiId: string
+  upiName: string
+  remindersEnabled: boolean
+  reminderDays: number
+  whatsappTemplate: string
+  whatsappLang: string
+}
+
+export interface ReminderRecord {
+  id: string
+  passId: string
+  endDate: string
+  channel: 'manual' | 'whatsapp'
+  status: 'sent' | 'failed'
+  message: string
+  error?: string
+  at: string
+  byName?: string
+  byUsername?: string
 }
 
 export interface UserRecord {
@@ -184,6 +203,74 @@ export function deletePass(id: string): boolean {
   return Number(result.changes) > 0
 }
 
+/* -------------------------------- reminders -------------------------------- */
+
+function toReminder(row: Row): ReminderRecord {
+  return {
+    id: String(row.id),
+    passId: String(row.pass_id),
+    endDate: String(row.end_date),
+    channel: row.channel === 'whatsapp' ? 'whatsapp' : 'manual',
+    status: row.status === 'failed' ? 'failed' : 'sent',
+    message: String(row.message ?? ''),
+    error: row.error == null ? undefined : String(row.error),
+    at: String(row.at),
+    byName: row.by_name == null ? undefined : String(row.by_name),
+    byUsername: row.by_username == null ? undefined : String(row.by_username),
+  }
+}
+
+export function listReminders(limit = 500): ReminderRecord[] {
+  return (stmt('SELECT * FROM pass_reminders ORDER BY at DESC LIMIT ?').all(limit) as Row[]).map(toReminder)
+}
+
+/** Any successful reminder for this expiry cycle means the customer was already contacted. */
+export function hasSentReminder(passId: string, endDate: string): boolean {
+  const row = stmt("SELECT 1 FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND status = 'sent'").get(
+    passId,
+    endDate,
+  )
+  return Boolean(row)
+}
+
+export function recordReminder(input: {
+  passId: string
+  endDate: string
+  channel: ReminderRecord['channel']
+  status: ReminderRecord['status']
+  message: string
+  error?: string
+  at?: string
+  byName?: string
+  byUsername?: string
+}): ReminderRecord {
+  const at = input.at ?? new Date().toISOString()
+  stmt(
+    `INSERT INTO pass_reminders (id, pass_id, end_date, channel, status, message, error, at, by_name, by_username)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(pass_id, end_date, channel) DO UPDATE SET
+       status = excluded.status, message = excluded.message, error = excluded.error,
+       at = excluded.at, by_name = excluded.by_name, by_username = excluded.by_username`,
+  ).run(
+    `rm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    input.passId,
+    input.endDate,
+    input.channel,
+    input.status,
+    input.message,
+    input.error ?? null,
+    at,
+    input.byName ?? null,
+    input.byUsername ?? null,
+  )
+  const row = stmt('SELECT * FROM pass_reminders WHERE pass_id = ? AND end_date = ? AND channel = ?').get(
+    input.passId,
+    input.endDate,
+    input.channel,
+  ) as Row
+  return toReminder(row)
+}
+
 export function tokenExists(token: string, excludeId?: string): boolean {
   const row = excludeId
     ? stmt('SELECT 1 FROM passes WHERE token = ? AND id <> ?').get(token, excludeId)
@@ -191,8 +278,7 @@ export function tokenExists(token: string, excludeId?: string): boolean {
   return Boolean(row)
 }
 
-export function tokenFromPayload(text: string): string {
-  const trimmed = text.trim()
+export function tokenFromPayload(text: string): string {  const trimmed = text.trim()
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed)
@@ -313,26 +399,72 @@ export function clearLogs(): void {
 /* ----------------------------------- site ---------------------------------- */
 
 export function getSite(): SiteRecord {
-  const row = stmt('SELECT name, capacity, monthly_rate FROM site WHERE id = 1').get() as Row | undefined
-  if (!row) return { name: 'Riverfront Parking', capacity: 120, monthlyRate: 1800 }
+  const row = stmt(
+    'SELECT name, capacity, monthly_rate, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang FROM site WHERE id = 1',
+  ).get() as Row | undefined
+  if (!row) {
+    return {
+      name: 'Riverfront Parking',
+      capacity: 120,
+      monthlyRate: 1800,
+      upiId: '',
+      upiName: '',
+      remindersEnabled: false,
+      reminderDays: 3,
+      whatsappTemplate: '',
+      whatsappLang: 'en',
+    }
+  }
   return {
     name: String(row.name),
     capacity: Number(row.capacity),
     monthlyRate: Number(row.monthly_rate ?? 1800) || 1800,
+    upiId: String(row.upi_id ?? ''),
+    upiName: String(row.upi_name ?? ''),
+    remindersEnabled: Boolean(Number(row.reminders_enabled ?? 0)),
+    reminderDays: Number(row.reminder_days ?? 3) || 3,
+    whatsappTemplate: String(row.whatsapp_template ?? ''),
+    whatsappLang: String(row.whatsapp_lang ?? 'en') || 'en',
   }
 }
 
 export function updateSite(patch: Partial<SiteRecord>): SiteRecord {
   const current = getSite()
+  const reminderDays =
+    patch.reminderDays == null ? current.reminderDays : Math.min(14, Math.max(1, Math.round(patch.reminderDays)))
   const next: SiteRecord = {
     name: patch.name?.trim() || current.name,
     capacity: patch.capacity && patch.capacity > 0 ? Math.round(patch.capacity) : current.capacity,
     monthlyRate: patch.monthlyRate && patch.monthlyRate > 0 ? Math.round(patch.monthlyRate) : current.monthlyRate,
+    upiId: patch.upiId === undefined ? current.upiId : patch.upiId.trim().toLowerCase(),
+    upiName: patch.upiName === undefined ? current.upiName : patch.upiName.trim(),
+    remindersEnabled: patch.remindersEnabled === undefined ? current.remindersEnabled : patch.remindersEnabled,
+    reminderDays,
+    whatsappTemplate:
+      patch.whatsappTemplate === undefined ? current.whatsappTemplate : patch.whatsappTemplate.trim(),
+    whatsappLang: patch.whatsappLang === undefined ? current.whatsappLang : patch.whatsappLang.trim() || 'en',
   }
   stmt(
-    `INSERT INTO site (id, name, capacity, monthly_rate, updated_at) VALUES (1, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, capacity = excluded.capacity, monthly_rate = excluded.monthly_rate, updated_at = excluded.updated_at`,
-  ).run(next.name, next.capacity, next.monthlyRate, new Date().toISOString())
+    `INSERT INTO site (id, name, capacity, monthly_rate, upi_id, upi_name, reminders_enabled, reminder_days, whatsapp_template, whatsapp_lang, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name, capacity = excluded.capacity, monthly_rate = excluded.monthly_rate,
+       upi_id = excluded.upi_id, upi_name = excluded.upi_name,
+       reminders_enabled = excluded.reminders_enabled, reminder_days = excluded.reminder_days,
+       whatsapp_template = excluded.whatsapp_template, whatsapp_lang = excluded.whatsapp_lang,
+       updated_at = excluded.updated_at`,
+  ).run(
+    next.name,
+    next.capacity,
+    next.monthlyRate,
+    next.upiId,
+    next.upiName,
+    next.remindersEnabled ? 1 : 0,
+    next.reminderDays,
+    next.whatsappTemplate,
+    next.whatsappLang,
+    new Date().toISOString(),
+  )
   return next
 }
 
@@ -568,5 +700,5 @@ export function deleteEmployeeLeave(leaveId: string, userId: string): boolean {
 /* ---------------------------------- reset ---------------------------------- */
 
 export function clearAllData(): void {
-  db.exec('DELETE FROM scans; DELETE FROM walkins; DELETE FROM passes; DELETE FROM logs;')
+  db.exec('DELETE FROM pass_reminders; DELETE FROM scans; DELETE FROM walkins; DELETE FROM passes; DELETE FROM logs;')
 }

@@ -1,4 +1,14 @@
-import type { AuditLog, Pass, Role, ScanEvent, ScanFeedback, StaffPermissions, WalkIn } from '@/types'
+import type {
+  AuditLog,
+  Pass,
+  ReminderRecord,
+  ReminderRunResult,
+  Role,
+  ScanEvent,
+  ScanFeedback,
+  StaffPermissions,
+  WalkIn,
+} from '@/types'
 
 export const API_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
 const TOKEN_KEY = 'parkpro.token.v1'
@@ -79,6 +89,13 @@ export interface SitePayload {
   name: string
   capacity: number
   monthlyRate: number
+  upiId: string
+  upiName: string
+  remindersEnabled: boolean
+  reminderDays: number
+  whatsappTemplate: string
+  whatsappLang: string
+  whatsappConfigured: boolean
 }
 
 export interface AuthResponse {
@@ -93,6 +110,7 @@ export interface BootstrapPayload {
   scans: ScanEvent[]
   walkins: WalkIn[]
   logs: AuditLog[]
+  reminders?: ReminderRecord[]
   at: string
 }
 
@@ -232,6 +250,14 @@ export const api = {
 
   updateSite: (patch: Partial<SitePayload>) =>
     request<{ site: SitePayload }>('/site', { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  markReminder: (passId: string, payload: { message?: string; channel?: 'manual' | 'whatsapp' }) =>
+    request<{ reminder: ReminderRecord }>(`/reminders/${encodeURIComponent(passId)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  runReminders: () => request<ReminderRunResult>('/reminders/run', { method: 'POST' }),
 
   listStaff: (month?: string) =>
     request<{ staff: StaffMember[]; month: string; pendingRequests?: PendingLeaveRequest[] }>(

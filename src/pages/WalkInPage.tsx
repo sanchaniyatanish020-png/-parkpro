@@ -26,6 +26,7 @@ import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
 import { Avatar, Badge, Button, PlateInput, PhoneInput, Segmented, TextInput } from '@/components/ui'
 import { PullToRefresh } from '@/components/PullToRefresh'
+import { UpiPaySheet } from '@/components/UpiPaySheet'
 import { captureVideoFrame, getCameraStream, stopStream, type Facing } from '@/lib/camera'
 import { compressImage, type CompressedImage } from '@/lib/image'
 import { HAPTIC, vibrate } from '@/lib/haptics'
@@ -71,6 +72,7 @@ export default function WalkInPage() {
   }, [navState])
   const [errors, setErrors] = useState<{ name?: string; phone?: string }>({})
   const [saving, setSaving] = useState(false)
+  const [upiOpen, setUpiOpen] = useState(false)
   const [saved, setSaved] = useState<WalkIn | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -152,11 +154,7 @@ export default function WalkInPage() {
     return Object.keys(next).length === 0
   }
 
-  const handleSave = async () => {
-    if (!validate()) {
-      vibrate(HAPTIC.error, settings.haptics)
-      return
-    }
+  const submitWalkIn = async (): Promise<boolean> => {
     setSaving(true)
     try {
       const entry = await addWalkIn({
@@ -169,12 +167,27 @@ export default function WalkInPage() {
         paymentMode,
       })
       vibrate(HAPTIC.success, settings.haptics)
+      setUpiOpen(false)
       setSaved(entry)
+      return true
     } catch {
       toast({ message: t('toast.error'), tone: 'error' })
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSave = () => {
+    if (!validate()) {
+      vibrate(HAPTIC.error, settings.haptics)
+      return
+    }
+    if (paymentMode === 'upi') {
+      setUpiOpen(true)
+      return
+    }
+    void submitWalkIn()
   }
 
   const resetForm = () => {
@@ -187,6 +200,7 @@ export default function WalkInPage() {
     setPaymentMode('cash')
     setPhoto(null)
     setErrors({})
+    setUpiOpen(false)
     setFacing('environment')
   }
 
@@ -419,6 +433,9 @@ export default function WalkInPage() {
                 { id: 'card', label: t('pay.card'), icon: CreditCard },
               ]}
             />
+            {paymentMode === 'upi' && (
+              <p className="mt-1.5 text-xs leading-snug text-navy-400 dark:text-navy-300">{t('upi.qrNext')}</p>
+            )}
           </div>
 
           {!online && (
@@ -429,12 +446,24 @@ export default function WalkInPage() {
           )}
 
           <div className="sticky bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom)+10px)] z-20 rounded-2xl border border-navy-100 bg-white/95 p-2 shadow-lift backdrop-blur dark:border-white/10 dark:bg-navy-900/95 lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none dark:lg:bg-transparent">
-            <Button full loading={saving} onClick={() => void handleSave()} icon={CarFront} className="min-h-[54px]">
-              {saving ? t('walkin.saving') : t('walkin.save')}
+            <Button full loading={saving} onClick={handleSave} icon={CarFront} className="min-h-[54px]">
+              {saving ? t('walkin.saving') : paymentMode === 'upi' ? t('upi.showQr') : t('walkin.save')}
             </Button>
           </div>
         </section>
       </div>
+
+      <UpiPaySheet
+        open={upiOpen}
+        amount={amount}
+        note={t('upi.noteWalkin', { vehicle: vehicle ? formatPlate(vehicle) : `+91 ${phone}` })}
+        confirmLabel={t('upi.confirmWalkin')}
+        busy={saving}
+        onClose={() => {
+          if (!saving) setUpiOpen(false)
+        }}
+        onConfirm={() => void submitWalkIn()}
+      />
     </PullToRefresh>
   )
 }

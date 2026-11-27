@@ -7,6 +7,7 @@ import { env } from './env'
 import { db } from './db'
 import { broadcast, closeStreams } from './events'
 import { seedIfEmpty } from './seed'
+import { startReminderScheduler } from './reminders'
 import { HttpError } from './validate'
 import authRoutes from './routes/auth'
 import bootstrapRoutes from './routes/bootstrap'
@@ -14,6 +15,7 @@ import demoRoutes from './routes/demo'
 import eventRoutes from './routes/events'
 import logRoutes from './routes/logs'
 import passRoutes from './routes/passes'
+import reminderRoutes from './routes/reminders'
 import scanRoutes from './routes/scans'
 import siteRoutes from './routes/site'
 import staffRoutes from './routes/staff'
@@ -72,6 +74,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/events', eventRoutes)
 app.use('/api/bootstrap', bootstrapRoutes)
 app.use('/api/passes', passRoutes)
+app.use('/api/reminders', reminderRoutes)
 app.use('/api/scans', scanRoutes)
 app.use('/api/walkins', walkinRoutes)
 app.use('/api/logs', logRoutes)
@@ -136,6 +139,7 @@ const server = app.listen(env.port, () => {
     )
   }
   console.info('')
+  startReminderScheduler()
 })
 
 function shutdown() {

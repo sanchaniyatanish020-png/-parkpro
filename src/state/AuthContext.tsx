@@ -163,8 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [completeSignIn],
   )
 
+  const authed = Boolean(session)
+
   useEffect(() => {
-    if (!session) return
+    if (!authed) return
     let active = true
     const applyUser = (user: ApiUser) => {
       const nextPerms = resolvePermissions(user.role, user.permissions)
@@ -196,9 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false
       window.removeEventListener('parkpro:user', onUserEvent)
     }
-    // Validate the stored token once per app session.
+    // Re-run only when a session starts or ends, so live permission updates do not loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authed])
 
   useEffect(() => {
     const onUnauthorized = () => {

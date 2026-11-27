@@ -103,6 +103,13 @@ export interface AppSettings {
   rememberDevice: boolean
   capacity: number
   monthlyRate: number
+  upiId: string
+  upiName: string
+  remindersEnabled: boolean
+  reminderDays: number
+  whatsappTemplate: string
+  whatsappLang: string
+  whatsappConfigured: boolean
   notifications: {
     expiring: boolean
     nearlyFull: boolean
@@ -169,6 +176,31 @@ export interface NewWalkInInput {
 export interface ParkedItem {
   pass: Pass
   since: string
+}
+
+export type ReminderChannel = 'manual' | 'whatsapp'
+
+export interface ReminderRecord {
+  id: string
+  passId: string
+  endDate: string
+  channel: ReminderChannel
+  status: 'sent' | 'failed'
+  message: string
+  error?: string
+  at: string
+  byName?: string
+  byUsername?: string
+}
+
+export interface ReminderRunResult {
+  configured: boolean
+  enabled: boolean
+  considered: number
+  sent: number
+  skipped: number
+  failed: number
+  error?: string
 }
 
 export interface TodayPaymentItem {

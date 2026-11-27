@@ -29,4 +29,9 @@ export const env = {
   demoLogin: process.env.DEMO_LOGIN ? process.env.DEMO_LOGIN === 'true' : !isProd,
   isProd,
   tokenTtl: '7d' as const,
+  whatsappToken: process.env.WHATSAPP_TOKEN?.trim() ?? '',
+  whatsappPhoneId: process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() ?? '',
+  reminderCronSecret: process.env.REMINDER_CRON_SECRET?.trim() ?? '',
 }
+
+export const whatsappConfigured = Boolean(env.whatsappToken && env.whatsappPhoneId)

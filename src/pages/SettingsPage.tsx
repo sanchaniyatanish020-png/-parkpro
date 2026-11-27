@@ -9,12 +9,15 @@ import {
   KeyRound,
   Languages,
   LogOut,
+  MessageCircle,
   Monitor,
   Moon,
   Palette,
   RefreshCw,
   RotateCcw,
+  Send,
   ShieldCheck,
+  Smartphone,
   Sun,
   Type,
   UserRound,
@@ -32,6 +35,7 @@ import { Sheet } from '@/components/Sheet'
 import { StaffTeamSection } from '@/components/StaffTeamSection'
 import { StaffLeaveSection } from '@/components/StaffLeaveSection'
 import { LANG_OPTIONS } from '@/lib/i18n'
+import { isValidUpiId, normalizeUpiId } from '@/lib/upi'
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -50,7 +54,7 @@ const AUTO_LOCK = [
 export default function SettingsPage() {
   const { settings, update, t, lang } = useSettings()
   const { role, can, signOut, changePassword } = useAuth()
-  const { stats, pendingCount, lastSync, online, syncing, syncNow, reset, updateSite } = useData()
+  const { stats, pendingCount, lastSync, online, syncing, syncNow, reset, updateSite, runReminders } = useData()
   const { toast } = useToast()
   const navigate = useNavigate()
   const isOwner = role === 'owner'
@@ -60,6 +64,7 @@ export default function SettingsPage() {
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [sendingReminders, setSendingReminders] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -131,6 +136,66 @@ export default function SettingsPage() {
       setResetOpen(false)
     } finally {
       setResetting(false)
+    }
+  }
+
+  const saveUpiId = async () => {
+    const id = normalizeUpiId(settings.upiId)
+    if (id && !isValidUpiId(id)) {
+      toast({ message: t('upi.invalidId'), tone: 'error' })
+      return
+    }
+    if (id !== settings.upiId) update({ upiId: id })
+    await updateSite({ upiId: id })
+  }
+
+  const saveUpiName = async () => {
+    const name = settings.upiName.trim()
+    if (name !== settings.upiName) update({ upiName: name })
+    await updateSite({ upiName: name })
+  }
+
+  const setAutoReminders = (value: boolean) => {
+    update({ remindersEnabled: value })
+    void updateSite({ remindersEnabled: value })
+  }
+
+  const saveReminderDays = async () => {
+    const days = Math.min(14, Math.max(1, Math.round(Number(settings.reminderDays) || 3)))
+    if (days !== settings.reminderDays) update({ reminderDays: days })
+    await updateSite({ reminderDays: days })
+  }
+
+  const saveWhatsappTemplate = async () => {
+    const name = settings.whatsappTemplate.trim()
+    if (name !== settings.whatsappTemplate) update({ whatsappTemplate: name })
+    await updateSite({ whatsappTemplate: name })
+  }
+
+  const saveWhatsappLang = async () => {
+    const code = settings.whatsappLang.trim() || 'en'
+    if (code !== settings.whatsappLang) update({ whatsappLang: code })
+    await updateSite({ whatsappLang: code })
+  }
+
+  const sendRemindersNow = async () => {
+    setSendingReminders(true)
+    try {
+      const result = await runReminders()
+      if (!result.configured) {
+        toast({ message: t('reminders.notConnected'), tone: 'warning' })
+        return
+      }
+      toast({
+        message:
+          result.error ??
+          t('reminders.runDone', { sent: result.sent, failed: result.failed, skipped: result.skipped }),
+        tone: result.failed > 0 || result.error ? 'warning' : 'success',
+      })
+    } catch (error) {
+      toast({ message: error instanceof Error ? error.message : t('toast.error'), tone: 'error' })
+    } finally {
+      setSendingReminders(false)
     }
   }
 
@@ -212,6 +277,33 @@ export default function SettingsPage() {
             hint={canEditSite ? t('settings.monthlyRateHelp') : undefined}
             disabled={!canEditSite}
             icon={IndianRupee}
+          />
+        </div>
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.upiId')}
+            value={settings.upiId}
+            onChange={(event) => update({ upiId: event.target.value })}
+            onBlur={canEditSite ? () => void saveUpiId() : undefined}
+            hint={canEditSite ? t('settings.upiIdHelp') : undefined}
+            placeholder="name@okhdfcbank"
+            autoComplete="off"
+            autoCapitalize="none"
+            disabled={!canEditSite}
+            icon={Smartphone}
+          />
+        </div>
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.upiName')}
+            value={settings.upiName}
+            onChange={(event) => update({ upiName: event.target.value })}
+            onBlur={canEditSite ? () => void saveUpiName() : undefined}
+            hint={canEditSite ? t('settings.upiNameHelp') : undefined}
+            placeholder={settings.ownerName || settings.siteName}
+            autoComplete="off"
+            autoCapitalize="words"
+            disabled={!canEditSite}
           />
         </div>
       </Group>
@@ -327,6 +419,93 @@ export default function SettingsPage() {
             </Button>
           )}
           <p className="text-xs leading-relaxed text-navy-400 dark:text-navy-300">{t('settings.notifsHint')}</p>
+        </div>
+      </Group>
+
+      <Group id="reminders" title={t('settings.whatsapp')} icon={MessageCircle}>
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-navy-900 dark:text-white">{t('settings.whatsapp')}</p>
+            <p className="mt-0.5 text-xs text-navy-500 dark:text-navy-300">
+              {settings.whatsappConfigured
+                ? t('settings.whatsappSendHint')
+                : t('settings.whatsappMissingHelp')}
+            </p>
+          </div>
+          <Badge
+            tone={settings.whatsappConfigured ? 'success' : 'warning'}
+            icon={settings.whatsappConfigured ? Check : CloudOff}
+          >
+            {settings.whatsappConfigured ? t('settings.whatsappConnected') : t('settings.whatsappMissing')}
+          </Badge>
+        </div>
+
+        <Toggle
+          checked={settings.remindersEnabled}
+          onChange={setAutoReminders}
+          label={t('settings.whatsappAuto')}
+          description={t('settings.whatsappAutoDesc')}
+          disabled={!canEditSite}
+        />
+
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.whatsappDays')}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={14}
+            value={String(settings.reminderDays || 3)}
+            onChange={(event) =>
+              update({ reminderDays: Math.min(14, Math.max(1, Number(event.target.value) || 1)) })
+            }
+            onBlur={canEditSite ? () => void saveReminderDays() : undefined}
+            hint={canEditSite ? t('settings.whatsappDaysHelp') : undefined}
+            disabled={!canEditSite}
+          />
+        </div>
+
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.whatsappTemplate')}
+            value={settings.whatsappTemplate}
+            onChange={(event) => update({ whatsappTemplate: event.target.value })}
+            onBlur={canEditSite ? () => void saveWhatsappTemplate() : undefined}
+            placeholder={t('settings.whatsappTemplatePlaceholder')}
+            hint={canEditSite ? t('settings.whatsappTemplateHelp') : undefined}
+            autoComplete="off"
+            autoCapitalize="none"
+            disabled={!canEditSite}
+          />
+        </div>
+
+        <div className="pb-3 pt-1">
+          <TextInput
+            label={t('settings.whatsappLang')}
+            value={settings.whatsappLang}
+            onChange={(event) => update({ whatsappLang: event.target.value })}
+            onBlur={canEditSite ? () => void saveWhatsappLang() : undefined}
+            hint={canEditSite ? t('settings.whatsappLangHelp') : undefined}
+            placeholder="en"
+            autoComplete="off"
+            autoCapitalize="none"
+            disabled={!canEditSite}
+          />
+        </div>
+
+        <div className="space-y-2 py-3">
+          <Button
+            full
+            variant="navy"
+            icon={Send}
+            loading={sendingReminders}
+            disabled={!canEditSite || sendingReminders}
+            onClick={() => void sendRemindersNow()}
+            className="min-h-[48px]"
+          >
+            {t('settings.whatsappSendNow')}
+          </Button>
+          <p className="text-xs leading-relaxed text-navy-400 dark:text-navy-300">{t('settings.whatsappSendHint')}</p>
         </div>
       </Group>
 

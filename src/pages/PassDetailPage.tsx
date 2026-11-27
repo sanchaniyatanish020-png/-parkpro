@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Phone,
   Printer,
+  QrCode,
   RefreshCw,
   Smartphone,
   Ticket,
@@ -20,6 +21,7 @@ import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
 import { Avatar, Button, EmptyState, KeyValue, PassStatusBadge, Segmented, Skeleton } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
+import { UpiPaySheet } from '@/components/UpiPaySheet'
 import { PassCard } from '@/components/PassCard'
 import { copyText, openWhatsApp, shareImage } from '@/lib/share'
 import { HAPTIC, vibrate } from '@/lib/haptics'
@@ -48,6 +50,7 @@ export default function PassDetailPage() {
   const [busy, setBusy] = useState<'share' | 'download' | null>(null)
 
   const [renewOpen, setRenewOpen] = useState(false)
+  const [upiOpen, setUpiOpen] = useState(false)
   const [payment, setPayment] = useState<PayMode>('cash')
   const [saving, setSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -71,6 +74,7 @@ export default function PassDetailPage() {
   const openRenew = () => {
     if (!pass) return
     setPayment('cash')
+    setUpiOpen(false)
     setRenewOpen(true)
   }
 
@@ -122,19 +126,32 @@ export default function PassDetailPage() {
     if (ok) toast({ message: t('passes.copied'), tone: 'success' })
   }
 
-  const handleRenew = async () => {
-    if (!pass) return
+  const submitRenew = async (): Promise<boolean> => {
+    if (!pass) return false
     setSaving(true)
     try {
       const updated = await renewPass(pass, 'monthly', payment)
       vibrate(HAPTIC.success, settings.haptics)
       toast({ message: t('passes.renewed', { date: formatDate(updated.endDate, lang) }), tone: 'success' })
+      setUpiOpen(false)
       setRenewOpen(false)
+      return true
     } catch {
       toast({ message: t('toast.error'), tone: 'error' })
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleRenew = () => {
+    if (!pass) return
+    if (payment === 'upi') {
+      setRenewOpen(false)
+      setUpiOpen(true)
+      return
+    }
+    void submitRenew()
   }
 
   const handleDelete = async () => {
@@ -321,8 +338,14 @@ export default function PassDetailPage() {
         title={t('passes.renewTitle')}
         subtitle={t('passes.renewBody', { name: pass.name })}
         footer={
-          <Button full loading={saving} onClick={() => void handleRenew()} icon={RefreshCw} className="min-h-[52px]">
-            {t('action.renew')} · {formatMoney(preview?.price ?? 0, lang)}
+          <Button
+            full
+            loading={saving}
+            onClick={handleRenew}
+            icon={payment === 'upi' ? QrCode : RefreshCw}
+            className="min-h-[52px]"
+          >
+            {payment === 'upi' ? t('upi.showQr') : t('action.renew')} · {formatMoney(preview?.price ?? 0, lang)}
           </Button>
         }
       >
@@ -365,9 +388,26 @@ export default function PassDetailPage() {
                 { id: 'card', label: t('pay.card'), icon: CreditCard },
               ]}
             />
+            {payment === 'upi' && (
+              <p className="mt-1.5 text-xs leading-snug text-navy-400 dark:text-navy-300">{t('upi.qrNext')}</p>
+            )}
           </div>
         </div>
       </Sheet>
+
+      <UpiPaySheet
+        open={upiOpen}
+        amount={preview?.price ?? 0}
+        note={t('upi.noteRenew', { vehicle: formatPlate(pass.vehicle) })}
+        confirmLabel={t('upi.confirmRenew')}
+        busy={saving}
+        onClose={() => {
+          if (saving) return
+          setUpiOpen(false)
+          setRenewOpen(true)
+        }}
+        onConfirm={() => void submitRenew()}
+      />
 
       <Sheet
         open={deleteOpen}

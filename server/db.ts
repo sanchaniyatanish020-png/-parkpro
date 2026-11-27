@@ -30,6 +30,12 @@ db.exec(`
     name TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 120,
     monthly_rate INTEGER NOT NULL DEFAULT 1800,
+    upi_id TEXT NOT NULL DEFAULT '',
+    upi_name TEXT NOT NULL DEFAULT '',
+    reminders_enabled INTEGER NOT NULL DEFAULT 0,
+    reminder_days INTEGER NOT NULL DEFAULT 3,
+    whatsapp_template TEXT NOT NULL DEFAULT '',
+    whatsapp_lang TEXT NOT NULL DEFAULT 'en',
     updated_at TEXT NOT NULL
   );
 
@@ -56,6 +62,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_passes_token ON passes(token);
   CREATE INDEX IF NOT EXISTS idx_passes_vehicle ON passes(vehicle);
   CREATE INDEX IF NOT EXISTS idx_passes_end ON passes(end_date);
+
+  CREATE TABLE IF NOT EXISTS pass_reminders (
+    id TEXT PRIMARY KEY,
+    pass_id TEXT NOT NULL REFERENCES passes(id) ON DELETE CASCADE,
+    end_date TEXT NOT NULL,
+    channel TEXT NOT NULL CHECK (channel IN ('manual', 'whatsapp')),
+    status TEXT NOT NULL CHECK (status IN ('sent', 'failed')),
+    message TEXT NOT NULL DEFAULT '',
+    error TEXT,
+    at TEXT NOT NULL,
+    by_name TEXT,
+    by_username TEXT,
+    UNIQUE(pass_id, end_date, channel)
+  );
+  CREATE INDEX IF NOT EXISTS idx_reminders_at ON pass_reminders(at);
+  CREATE INDEX IF NOT EXISTS idx_reminders_pass ON pass_reminders(pass_id, end_date);
 
   CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY,
@@ -171,4 +193,22 @@ if (!walkinColumns.some((col) => col.name === 'collected_by_username')) {
 const siteColumns = db.prepare('PRAGMA table_info(site)').all() as { name: string }[]
 if (!siteColumns.some((col) => col.name === 'monthly_rate')) {
   db.exec('ALTER TABLE site ADD COLUMN monthly_rate INTEGER NOT NULL DEFAULT 1800')
+}
+if (!siteColumns.some((col) => col.name === 'upi_id')) {
+  db.exec("ALTER TABLE site ADD COLUMN upi_id TEXT NOT NULL DEFAULT ''")
+}
+if (!siteColumns.some((col) => col.name === 'upi_name')) {
+  db.exec("ALTER TABLE site ADD COLUMN upi_name TEXT NOT NULL DEFAULT ''")
+}
+if (!siteColumns.some((col) => col.name === 'reminders_enabled')) {
+  db.exec('ALTER TABLE site ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 0')
+}
+if (!siteColumns.some((col) => col.name === 'reminder_days')) {
+  db.exec('ALTER TABLE site ADD COLUMN reminder_days INTEGER NOT NULL DEFAULT 3')
+}
+if (!siteColumns.some((col) => col.name === 'whatsapp_template')) {
+  db.exec("ALTER TABLE site ADD COLUMN whatsapp_template TEXT NOT NULL DEFAULT ''")
+}
+if (!siteColumns.some((col) => col.name === 'whatsapp_lang')) {
+  db.exec("ALTER TABLE site ADD COLUMN whatsapp_lang TEXT NOT NULL DEFAULT 'en'")
 }

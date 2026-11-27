@@ -51,11 +51,11 @@ import {
 const RevenueChart = lazy(() => import('@/components/RevenueChart'))
 
 export default function AdminHome() {
-  const { can } = useAuth()
+  const { can, role, name } = useAuth()
   const showDashboard = can('dashboard')
   const showRevenue = can('revenue')
   const showEmployees = can('employees')
-  const { stats, expiring, passes, walkins, ready, refresh } = useData()
+  const { stats, expiring, passes, walkins, ready, refresh, markReminder } = useData()
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
   const [collectionTab, setCollectionTab] = useState<'all' | 'cash' | 'online' | null>(null)
@@ -122,6 +122,7 @@ export default function AdminHome() {
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('admin.morning') : hour < 17 ? t('admin.afternoon') : t('admin.evening')
+  const personName = role === 'owner' ? settings.ownerName || 'Bhavesh Porva' : name || settings.staffName
 
   const revenueSeries = useMemo(() => {
     const days = lastNDays(7)
@@ -149,14 +150,13 @@ export default function AdminHome() {
   const freeSlots = Math.max(0, stats.capacity - stats.occupied)
 
   const remind = (pass: (typeof expiring)[number]) => {
-    openWhatsApp(
-      pass.phone,
-      t('admin.remindText', {
-        name: pass.name,
-        site: settings.siteName,
-        date: formatDate(pass.endDate, lang),
-      }),
-    )
+    const message = t('admin.remindText', {
+      name: pass.name,
+      site: settings.siteName,
+      date: formatDate(pass.endDate, lang),
+    })
+    openWhatsApp(pass.phone, message)
+    void markReminder(pass.id, message)
   }
 
   return (
@@ -169,7 +169,7 @@ export default function AdminHome() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-navy-500 dark:text-navy-200">
-              {greeting}, <span className="font-semibold text-navy-900 dark:text-white">{(settings.ownerName || 'Bhavesh Porva').split(' ')[0]}</span>
+              {greeting}, <span className="font-semibold text-navy-900 dark:text-white">{personName.split(' ')[0]}</span>
             </p>
             <h1 className="mt-0.5 font-display text-[26px] font-bold leading-tight text-navy-900 dark:text-white lg:text-3xl">
               {t('admin.overview')}

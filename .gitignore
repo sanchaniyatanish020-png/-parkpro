@@ -30,4 +30,8 @@ dist-ssr
 
 # Local database
 data/
+scratch/
+*.db
+*.db-shm
+*.db-wal
 

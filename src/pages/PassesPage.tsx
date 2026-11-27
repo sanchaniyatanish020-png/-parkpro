@@ -2,14 +2,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Banknote,
+  BellRing,
   Bike,
   Calendar,
   Car,
+  Check,
   ChevronRight,
+  Clock3,
   CreditCard,
   Download,
   IndianRupee,
+  MessageCircle,
+  Pencil,
+  Phone,
   Plus,
+  QrCode,
   Search,
   Smartphone,
   Ticket,
@@ -18,13 +25,14 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import type { PassStatus, PayMode, PlanId, VehicleType } from '@/types'
+import type { Pass, PassStatus, PayMode, PlanId, VehicleType } from '@/types'
 import { useAuth } from '@/state/AuthContext'
 import { useData } from '@/state/DataContext'
 import { useSettings } from '@/state/SettingsContext'
 import { useToast } from '@/state/ToastContext'
 import {
   Avatar,
+  Badge,
   Button,
   EmptyState,
   ListSkeleton,
@@ -36,10 +44,13 @@ import {
   TextInput,
 } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
+import { UpiPaySheet } from '@/components/UpiPaySheet'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { ExportModal, type ExportFormat } from '@/components/ExportModal'
 import { exportPassesList } from '@/lib/export'
+import { callNumber, openWhatsApp } from '@/lib/share'
 import {
+  daysLeft,
   formatDate,
   formatMoney,
   formatPlate,
@@ -50,6 +61,7 @@ import {
   planLabel,
   proratedMonthlyPrice,
   validPhone,
+  cn,
 } from '@/lib/utils'
 
 type Filter = 'all' | PassStatus
@@ -72,11 +84,17 @@ export default function PassesPage() {
   const { can } = useAuth()
   const canManagePasses = can('managePasses')
   const canExportReports = can('reports')
-  const { passes, ready, createPass, refresh } = useData()
+  const canEditRate = can('siteSettings')
+  const { passes, ready, createPass, refresh, updateSite, reminders, markReminder } = useData()
   const { t, lang, settings } = useSettings()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+
+  const monthlyRate = settings.monthlyRate ?? 1800
+  const [rateOpen, setRateOpen] = useState(false)
+  const [rateDraft, setRateDraft] = useState(String(monthlyRate))
+  const [savingRate, setSavingRate] = useState(false)
 
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>(() => {
@@ -84,7 +102,9 @@ export default function PassesPage() {
     return value === 'active' || value === 'expiring' || value === 'expired' ? value : 'all'
   })
   const [formOpen, setFormOpen] = useState(() => canManagePasses && params.get('new') === '1')
+  const [upiOpen, setUpiOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [remindersOpen, setRemindersOpen] = useState(false)
 
   const today = isoDate(new Date())
   const [name, setName] = useState('')
@@ -133,6 +153,34 @@ export default function PassesPage() {
       .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
   }, [passes, filter, query])
 
+  const reminderDays = settings.reminderDays || 3
+  const dueReminders = useMemo(
+    () =>
+      passes
+        .filter((pass) => passStatus(pass) !== 'expired' && daysLeft(pass.endDate) <= reminderDays)
+        .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()),
+    [passes, reminderDays],
+  )
+  const remindedKeys = useMemo(
+    () =>
+      new Set(
+        reminders
+          .filter((reminder) => reminder.status === 'sent')
+          .map((reminder) => `${reminder.passId}|${reminder.endDate}`),
+      ),
+    [reminders],
+  )
+
+  const sendReminder = (pass: Pass) => {
+    const message = t('admin.remindText', {
+      name: pass.name,
+      site: settings.siteName,
+      date: formatDate(pass.endDate, lang),
+    })
+    openWhatsApp(pass.phone, message)
+    void markReminder(pass.id, message)
+  }
+
   const openCreate = () => {
     const start = isoDate(new Date())
     setName('')
@@ -157,7 +205,27 @@ export default function PassesPage() {
     }
   }
 
-  const handleCreate = async () => {
+  const openRateEditor = () => {
+    setRateDraft(String(monthlyRate))
+    setRateOpen(true)
+  }
+
+  const saveRate = async () => {
+    const value = Math.round(Number(rateDraft))
+    if (!Number.isFinite(value) || value < 1) {
+      toast({ message: t('passes.rateInvalid'), tone: 'error' })
+      return
+    }
+    setSavingRate(true)
+    const ok = await updateSite({ monthlyRate: value })
+    setSavingRate(false)
+    if (!ok) return
+    if (formOpen) setAmount(proratedMonthlyPrice(startDate, value))
+    setRateOpen(false)
+    toast({ message: t('passes.rateUpdated', { amount: formatMoney(value, lang) }), tone: 'success' })
+  }
+
+  const validateForm = () => {
     const next: typeof errors = {}
     if (!name.trim()) next.name = t('walkin.requiredName')
     if (!validPhone(phone)) next.phone = t('walkin.requiredPhone')
@@ -166,8 +234,10 @@ export default function PassesPage() {
       next.dates = t('passes.invalidDates')
     }
     setErrors(next)
-    if (Object.keys(next).length > 0) return
+    return Object.keys(next).length === 0
+  }
 
+  const submitCreate = async (): Promise<boolean> => {
     setCreating(true)
     try {
       const pass = await createPass({
@@ -186,13 +256,26 @@ export default function PassesPage() {
         message: t('passes.createdBody', { name: pass.name, date: formatDate(pass.endDate, lang) }),
         tone: 'success',
       })
+      setUpiOpen(false)
       setFormOpen(false)
       navigate(`/admin/passes/${pass.id}`)
+      return true
     } catch {
       toast({ message: t('toast.error'), tone: 'error' })
+      return false
     } finally {
       setCreating(false)
     }
+  }
+
+  const handleCreate = () => {
+    if (!validateForm()) return
+    if (paymentMode === 'upi') {
+      setFormOpen(false)
+      setUpiOpen(true)
+      return
+    }
+    void submitCreate()
   }
 
   const handleExport = async (format: ExportFormat) => {
@@ -238,6 +321,90 @@ export default function PassesPage() {
             )}
           </div>
         </div>
+
+        <section
+          aria-label={t('passes.rateTitle')}
+          className="mesh-navy relative mt-4 overflow-hidden rounded-2xl p-4 text-white shadow-soft"
+        >
+          <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-blue-500/25 blur-2xl" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-14 left-8 h-32 w-32 rounded-full bg-amber-400/10 blur-2xl" aria-hidden="true" />
+          <div className="relative flex items-center gap-3.5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+              <IndianRupee className="h-6 w-6 text-amber-300" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-navy-200">{t('passes.rateTitle')}</p>
+              <p className="mt-0.5 font-display text-[26px] font-bold leading-none tabular-nums">
+                {formatMoney(monthlyRate, lang)}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-navy-300">
+                {t('passes.rateToday', { amount: formatMoney(proratedMonthlyPrice(today, monthlyRate), lang) })}
+              </p>
+            </div>
+            {canEditRate ? (
+              <button
+                type="button"
+                onClick={openRateEditor}
+                className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-white/10 px-3.5 text-xs font-bold text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/15 active:scale-95"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('passes.rateEdit')}
+              </button>
+            ) : (
+              <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-navy-200">
+                {t('passes.rateLockedShort')}
+              </span>
+            )}
+          </div>
+        </section>
+
+        <section aria-label={t('reminders.cardTitle')} className="surface mt-3 overflow-hidden rounded-2xl">
+          <div className="flex items-center gap-3.5 p-4">
+            <span
+              className={
+                settings.remindersEnabled && settings.whatsappConfigured
+                  ? 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#DCFCE7] text-[#15803D] dark:bg-[#16A34A]/15 dark:text-[#86EFAC]'
+                  : 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300'
+              }
+            >
+              <BellRing className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-sm font-semibold text-navy-900 dark:text-white">{t('reminders.cardTitle')}</p>
+                <Badge
+                  tone={
+                    settings.remindersEnabled && settings.whatsappConfigured
+                      ? 'success'
+                      : settings.remindersEnabled
+                        ? 'warning'
+                        : 'neutral'
+                  }
+                >
+                  {settings.remindersEnabled && settings.whatsappConfigured
+                    ? t('reminders.autoOn')
+                    : settings.remindersEnabled
+                      ? t('reminders.autoPending')
+                      : t('reminders.manualOnly')}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-navy-500 dark:text-navy-300">
+                {dueReminders.length > 0
+                  ? t('reminders.cardDue', { n: dueReminders.length })
+                  : t('reminders.cardEmpty', { days: reminderDays })}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRemindersOpen(true)}
+              disabled={dueReminders.length === 0}
+              className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl bg-navy-50 px-3 text-xs font-bold text-navy-800 transition hover:bg-navy-100 active:scale-95 disabled:opacity-50 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            >
+              {t('reminders.open')}
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </section>
 
         <div className="relative mt-4">
           <Search
@@ -346,8 +513,8 @@ export default function PassesPage() {
         title={t('passes.newTitle')}
         subtitle={t('passes.newSubtitle')}
         footer={
-          <Button full loading={creating} onClick={() => void handleCreate()} icon={Ticket} className="min-h-[52px]">
-            {t('passes.create')}
+          <Button full loading={creating} onClick={handleCreate} icon={paymentMode === 'upi' ? QrCode : Ticket} className="min-h-[52px]">
+            {paymentMode === 'upi' ? t('upi.showQr') : t('passes.create')}
           </Button>
         }
       >
@@ -457,6 +624,9 @@ export default function PassesPage() {
                 { id: 'card', label: t('pay.card'), icon: CreditCard },
               ]}
             />
+            {paymentMode === 'upi' && (
+              <p className="mt-1.5 text-xs leading-snug text-navy-400 dark:text-navy-300">{t('upi.qrNext')}</p>
+            )}
           </div>
 
           <TextareaInput
@@ -468,6 +638,176 @@ export default function PassesPage() {
           />
         </div>
       </Sheet>
+
+      <Sheet
+        open={rateOpen}
+        onClose={() => (savingRate ? undefined : setRateOpen(false))}
+        title={t('passes.rateTitle')}
+        subtitle={t('passes.rateSubtitle')}
+        footer={
+          <Button
+            full
+            loading={savingRate}
+            disabled={!canEditRate}
+            onClick={() => void saveRate()}
+            icon={IndianRupee}
+            className="min-h-[52px]"
+          >
+            {t('passes.rateSave')}
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-blue-200/70 bg-blue-50/70 p-4 dark:border-blue-500/25 dark:bg-blue-500/10">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1E40AF] dark:text-blue-300">
+              {t('passes.ratePreview')}
+            </p>
+            <p className="mt-1.5 font-display text-3xl font-bold leading-none tabular-nums text-navy-900 dark:text-white">
+              {formatMoney(Math.max(1, Math.round(Number(rateDraft) || 0)), lang)}
+              <span className="ml-1 text-sm font-semibold text-navy-500 dark:text-navy-300">/ {t('plan_monthly')}</span>
+            </p>
+            <p className="mt-1.5 text-xs text-navy-600 dark:text-navy-300">
+              {t('passes.rateToday', {
+                amount: formatMoney(proratedMonthlyPrice(today, Math.max(1, Math.round(Number(rateDraft) || 0))), lang),
+              })}
+            </p>
+          </div>
+
+          <TextInput
+            label={t('passes.rateAmountLabel')}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={10}
+            value={rateDraft}
+            onChange={(event) => setRateDraft(event.target.value)}
+            icon={IndianRupee}
+            hint={t('passes.rateHint')}
+            required
+          />
+
+          <div>
+            <p className="label">{t('passes.ratePresets')}</p>
+            <div className="flex flex-wrap gap-2">
+              {[1500, 1800, 2000, 2500, 3000].map((value) => {
+                const active = Number(rateDraft) === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRateDraft(String(value))}
+                    className={cn(
+                      'min-h-[42px] rounded-xl border-2 px-3.5 font-mono text-sm font-bold transition-colors',
+                      active
+                        ? 'border-[#1868FE] bg-blue-50 text-[#1868FE] dark:bg-blue-500/15 dark:text-blue-300'
+                        : 'border-navy-200 text-navy-700 hover:border-navy-300 dark:border-white/15 dark:text-navy-100',
+                    )}
+                  >
+                    {formatMoney(value, lang)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <p className="rounded-xl bg-navy-50 px-3.5 py-2.5 text-xs leading-relaxed text-navy-500 dark:bg-white/[0.04] dark:text-navy-300">
+            {t('passes.rateNote')}
+          </p>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={remindersOpen}
+        onClose={() => setRemindersOpen(false)}
+        title={t('reminders.title')}
+        subtitle={t('reminders.subtitle', { days: reminderDays })}
+        footer={
+          <Button full variant="ghost" onClick={() => setRemindersOpen(false)} className="min-h-[48px]">
+            {t('action.close')}
+          </Button>
+        }
+      >
+        <div className="space-y-3">
+          <p
+            className={
+              settings.remindersEnabled && settings.whatsappConfigured
+                ? 'rounded-xl bg-[#DCFCE7] px-3.5 py-2.5 text-xs leading-relaxed text-[#15803D] dark:bg-[#16A34A]/15 dark:text-[#86EFAC]'
+                : 'rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800 dark:bg-amber-400/10 dark:text-amber-200'
+            }
+          >
+            {settings.remindersEnabled && settings.whatsappConfigured
+              ? t('reminders.autoHintOn')
+              : t('reminders.autoHint')}
+          </p>
+
+          {dueReminders.length === 0 ? (
+            <EmptyState icon={Check} title={t('reminders.emptyTitle')} body={t('reminders.emptyBody')} />
+          ) : (
+            <ul className="surface divide-y divide-navy-100 overflow-hidden dark:divide-white/10">
+              {dueReminders.map((pass) => {
+                const left = daysLeft(pass.endDate)
+                const sent = remindedKeys.has(`${pass.id}|${pass.endDate}`)
+                return (
+                  <li key={pass.id} className="flex items-center gap-3 p-3.5">
+                    <Avatar name={pass.name} photo={pass.photo} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-navy-900 dark:text-white">{pass.name}</p>
+                        {sent ? (
+                          <Badge tone="success" icon={Check} className="shrink-0">
+                            {t('reminders.sent')}
+                          </Badge>
+                        ) : (
+                          <Badge tone="warning" icon={Clock3} className="shrink-0">
+                            {left === 0 ? t('scan.today') : t('scan.daysLeft', { n: left })}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate font-mono text-xs text-navy-500 dark:text-navy-200">
+                        {formatPlate(pass.vehicle)} · {formatDate(pass.endDate, lang)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => callNumber(pass.phone)}
+                        aria-label={`${t('action.call')} ${pass.name}`}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-50 text-navy-700 active:scale-95 dark:bg-white/10 dark:text-white"
+                      >
+                        <Phone className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      {canManagePasses && (
+                        <button
+                          type="button"
+                          onClick={() => sendReminder(pass)}
+                          aria-label={`${t('reminders.send')} ${pass.name}`}
+                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DCFCE7] text-[#15803D] active:scale-95 dark:bg-[#16A34A]/15 dark:text-[#86EFAC]"
+                        >
+                          <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </Sheet>
+
+      <UpiPaySheet
+        open={upiOpen}
+        amount={amount}
+        note={vehicle ? `${t('upi.notePass', { name: name.trim() })} ${formatPlate(vehicle)}` : t('upi.notePass', { name: name.trim() })}
+        confirmLabel={t('upi.confirmPass')}
+        busy={creating}
+        onClose={() => {
+          if (creating) return
+          setUpiOpen(false)
+          setFormOpen(true)
+        }}
+        onConfirm={() => void submitCreate()}
+      />
 
       <ExportModal
         open={exportOpen}

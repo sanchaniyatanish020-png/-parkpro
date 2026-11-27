@@ -6,7 +6,7 @@ import { useSettings } from '@/state/SettingsContext'
 
 /* --------------------------------- button --------------------------------- */
 
-type ButtonVariant = 'primary' | 'navy' | 'ghost' | 'danger' | 'quiet'
+type ButtonVariant = 'primary' | 'navy' | 'success' | 'ghost' | 'danger' | 'quiet'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -18,6 +18,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'btn-primary',
   navy: 'btn-navy',
+  success: 'btn-success',
   ghost: 'btn-ghost',
   danger: 'btn-danger',
   quiet: 'btn text-navy-700 hover:bg-navy-50 dark:text-navy-100 dark:hover:bg-white/5',

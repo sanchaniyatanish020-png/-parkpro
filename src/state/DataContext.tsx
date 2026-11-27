@@ -17,6 +17,8 @@ import type {
   Pass,
   PayMode,
   PlanId,
+  ReminderRecord,
+  ReminderRunResult,
   ScanEvent,
   ScanFeedback,
   ScanOutcome,
@@ -40,6 +42,7 @@ interface DataContextValue {
   scans: ScanEvent[]
   walkins: WalkIn[]
   logs: AuditLog[]
+  reminders: ReminderRecord[]
   parked: ParkedItem[]
   expiring: Pass[]
   stats: SiteStats
@@ -53,7 +56,19 @@ interface DataContextValue {
   renewPass: (pass: Pass, plan: PlanId, payment: PayMode) => Promise<Pass>
   deletePass: (id: string) => Promise<void>
   addWalkIn: (input: NewWalkInInput) => Promise<WalkIn>
-  updateSite: (patch: { name?: string; capacity?: number; monthlyRate?: number }) => Promise<void>
+  updateSite: (patch: {
+    name?: string
+    capacity?: number
+    monthlyRate?: number
+    upiId?: string
+    upiName?: string
+    remindersEnabled?: boolean
+    reminderDays?: number
+    whatsappTemplate?: string
+    whatsappLang?: string
+  }) => Promise<boolean>
+  markReminder: (passId: string, message?: string) => Promise<void>
+  runReminders: () => Promise<ReminderRunResult>
   syncNow: (manual?: boolean) => Promise<void>
   refresh: () => Promise<void>
   reset: () => Promise<void>
@@ -104,6 +119,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [scans, setScans] = useState<ScanEvent[]>([])
   const [walkins, setWalkins] = useState<WalkIn[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
+  const [reminders, setReminders] = useState<ReminderRecord[]>([])
   const [ready, setReady] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<string | null>(() => localStorage.getItem(LAST_SYNC_KEY))
@@ -139,7 +155,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setScans(nextScans)
     setWalkins(nextWalkins)
     setLogs(nextLogs)
-    update({ siteName: payload.site.name, capacity: payload.site.capacity, monthlyRate: payload.site.monthlyRate ?? 1800 })
+    setReminders(payload.reminders ?? [])
+    update({
+      siteName: payload.site.name,
+      capacity: payload.site.capacity,
+      monthlyRate: payload.site.monthlyRate ?? 1800,
+      upiId: payload.site.upiId ?? '',
+      upiName: payload.site.upiName ?? '',
+      remindersEnabled: payload.site.remindersEnabled ?? false,
+      reminderDays: payload.site.reminderDays ?? 3,
+      whatsappTemplate: payload.site.whatsappTemplate ?? '',
+      whatsappLang: payload.site.whatsappLang ?? 'en',
+      whatsappConfigured: payload.site.whatsappConfigured ?? false,
+    })
     if (payload.user) {
       window.dispatchEvent(new CustomEvent('parkpro:user', { detail: payload.user }))
     }
@@ -516,19 +544,72 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast, t])
 
   const updateSite = useCallback(
-    async (patch: { name?: string; capacity?: number; monthlyRate?: number }) => {
+    async (patch: {
+      name?: string
+      capacity?: number
+      monthlyRate?: number
+      upiId?: string
+      upiName?: string
+      remindersEnabled?: boolean
+      reminderDays?: number
+      whatsappTemplate?: string
+      whatsappLang?: string
+    }) => {
       try {
         const { site } = await api.updateSite(patch)
-        update({ siteName: site.name, capacity: site.capacity, monthlyRate: site.monthlyRate })
+        update({
+          siteName: site.name,
+          capacity: site.capacity,
+          monthlyRate: site.monthlyRate,
+          upiId: site.upiId ?? '',
+          upiName: site.upiName ?? '',
+          remindersEnabled: site.remindersEnabled ?? false,
+          reminderDays: site.reminderDays ?? 3,
+          whatsappTemplate: site.whatsappTemplate ?? '',
+          whatsappLang: site.whatsappLang ?? 'en',
+          whatsappConfigured: site.whatsappConfigured ?? false,
+        })
+        return true
       } catch (error) {
         toast({
           message: error instanceof Error ? error.message : t('toast.error'),
           tone: error instanceof ApiError && error.status === 0 ? 'warning' : 'error',
         })
+        return false
       }
     },
     [update, toast, t],
   )
+
+  const markReminder = useCallback(
+    async (passId: string, message?: string) => {
+      const pass = passes.find((item) => item.id === passId)
+      if (!pass) return
+      try {
+        const { reminder } = await api.markReminder(passId, { message })
+        setReminders((prev) => [
+          reminder,
+          ...prev.filter(
+            (item) =>
+              !(item.passId === reminder.passId && item.endDate === reminder.endDate && item.channel === reminder.channel),
+          ),
+        ])
+      } catch {
+        /* tracking is best-effort — the WhatsApp message was already opened */
+      }
+    },
+    [passes],
+  )
+
+  const runReminders = useCallback(async () => {
+    const result = await api.runReminders()
+    try {
+      await hydrate()
+    } catch {
+      /* show the summary even if the refresh fails */
+    }
+    return result
+  }, [hydrate])
 
   useEffect(() => {
     const onOnline = () => setBrowserOnline(true)
@@ -676,6 +757,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scans,
       walkins,
       logs,
+      reminders,
       parked,
       expiring,
       stats: finalStats,
@@ -690,14 +772,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deletePass,
       addWalkIn,
       updateSite,
+      markReminder,
+      runReminders,
       syncNow,
       refresh,
       reset,
       clearLogs,
     }),
     [
-      ready, passes, scans, walkins, logs, parked, expiring, finalStats, pendingCount, online, syncing, lastSync,
-      findPass, scan, createPass, renewPass, deletePass, addWalkIn, updateSite, syncNow, refresh, reset, clearLogs,
+      ready, passes, scans, walkins, logs, reminders, parked, expiring, finalStats, pendingCount, online, syncing, lastSync,
+      findPass, scan, createPass, renewPass, deletePass, addWalkIn, updateSite, markReminder, runReminders, syncNow,
+      refresh, reset, clearLogs,
     ],
   )
 
