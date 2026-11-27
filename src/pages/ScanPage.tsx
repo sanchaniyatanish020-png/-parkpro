@@ -215,6 +215,7 @@ export default function ScanPage() {
       }
     }
 
+    let frameIndex = 0
     const tick = async (timestamp: number) => {
       if (cancelled) return
       const video = videoRef.current
@@ -224,11 +225,13 @@ export default function ScanPage() {
         return
       }
       last = timestamp
+      frameIndex += 1
 
       try {
         const width = video.videoWidth
         const height = video.videoHeight
-        const crop = Math.min(width, height) * 0.85
+        const ratio = frameIndex % 2 === 0 ? 0.85 : 0.45
+        const crop = Math.min(width, height) * ratio
         const size = 640
         canvas.width = size
         canvas.height = size
