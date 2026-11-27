@@ -9,6 +9,7 @@ import {
   LogOut,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
   UserCheck,
   UserPlus,
@@ -76,6 +77,10 @@ export default function EmployeesPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [salaryDraft, setSalaryDraft] = useState('')
   const [savingSalary, setSavingSalary] = useState(false)
+
+  const [rightsMember, setRightsMember] = useState<StaffMember | null>(null)
+  const [rightsDraft, setRightsDraft] = useState<StaffPermissions>(() => ({ ...DEFAULT_STAFF_PERMISSIONS }))
+  const [savingRights, setSavingRights] = useState(false)
 
   const [leaveDate, setLeaveDate] = useState(todayDateKey)
   const [leaveType, setLeaveType] = useState<'full' | 'half'>('full')
@@ -548,6 +553,19 @@ export default function EmployeesPage() {
                             </Button>
                             {role === 'owner' && (
                               <Button
+                                variant="ghost"
+                                icon={ShieldCheck}
+                                onClick={() => {
+                                  setRightsMember(member)
+                                  setRightsDraft({ ...member.permissions })
+                                }}
+                                className="min-h-[36px] px-3 py-1.5 text-xs"
+                              >
+                                {t('staff.rights')}
+                              </Button>
+                            )}
+                            {role === 'owner' && (
+                              <Button
                                 variant="quiet"
                                 disabled={busyId === member.id}
                                 onClick={() => void handleToggleActive(member)}
@@ -884,6 +902,56 @@ export default function EmployeesPage() {
             </section>
           </div>
         )}
+      </Sheet>
+      <Sheet
+        open={Boolean(rightsMember)}
+        onClose={() => (savingRights ? undefined : setRightsMember(null))}
+        title={rightsMember ? `${rightsMember.name} · ${t('staff.rightsTitle')}` : t('staff.rightsTitle')}
+        subtitle={rightsMember ? `@${rightsMember.username}` : undefined}
+        footer={
+          <Button
+            full
+            loading={savingRights}
+            onClick={async () => {
+              if (!rightsMember) return
+              setSavingRights(true)
+              try {
+                const res = await api.updateStaffPermissions(rightsMember.id, rightsDraft)
+                setStaff((prev) => prev.map((m) => (m.id === rightsMember.id ? { ...m, permissions: res.staff.permissions } : m)))
+                setRightsMember(null)
+                toast({ message: t('staff.rightsSaved'), tone: 'success' })
+              } catch (error) {
+                toast({ message: error instanceof Error ? error.message : t('toast.error'), tone: 'error' })
+              } finally {
+                setSavingRights(false)
+              }
+            }}
+            icon={Check}
+            className="min-h-[48px]"
+          >
+            {t('action.save')}
+          </Button>
+        }
+      >
+        <div className="space-y-2">
+          {PERMISSION_ITEMS.map((item) => (
+            <label
+              key={item.key}
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-navy-100 bg-navy-50/60 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-navy-900 dark:text-white">{t(item.labelKey)}</p>
+                <p className="text-[11px] text-navy-500 dark:text-navy-300">{t(item.descKey)}</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={rightsDraft[item.key]}
+                onChange={() => setRightsDraft((prev) => toggleStaffPermission(prev, item.key, !prev[item.key]))}
+                className="h-4 w-4 accent-[#1868FE]"
+              />
+            </label>
+          ))}
+        </div>
       </Sheet>
     </PullToRefresh>
   )
