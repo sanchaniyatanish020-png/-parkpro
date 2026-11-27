@@ -315,7 +315,17 @@ export function tokenExists(token: string, excludeId?: string): boolean {
   return Boolean(row)
 }
 
-export function tokenFromPayload(text: string): string {  const trimmed = text.trim()
+export function tokenFromPayload(text: string): string {
+  const trimmed = text.trim()
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      const val = parsed.token ?? parsed.pass ?? parsed.p
+      if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    } catch {
+      /* not valid JSON */
+    }
+  }
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed)
@@ -327,6 +337,8 @@ export function tokenFromPayload(text: string): string {  const trimmed = text.t
       /* treat as raw text */
     }
   }
+  const prkpMatch = trimmed.match(/PRKP-[A-Z0-9]+/i)
+  if (prkpMatch) return prkpMatch[0].toUpperCase()
   return trimmed.toUpperCase().replace(/\s+/g, '')
 }
 
