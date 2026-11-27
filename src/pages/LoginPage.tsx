@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import {
   ArrowRight,
-  BarChart3,
   Check,
   Eye,
   EyeOff,
   Loader2,
   Lock,
-  QrCode,
   ShieldAlert,
   ShieldCheck,
+  TrendingUp,
   UserRound,
-  WifiOff,
+  Users,
   X,
 } from 'lucide-react'
 import { useAuth } from '@/state/AuthContext'
@@ -25,9 +24,9 @@ import { vibrate, HAPTIC } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
 
 const HERO_FEATURES = [
-  { key: 'login.featureScan', icon: QrCode },
-  { key: 'login.featureOffline', icon: WifiOff },
-  { key: 'login.featureOwner', icon: BarChart3 },
+  { label: 'Trusted Solutions', icon: ShieldCheck },
+  { label: 'People First', icon: Users },
+  { label: 'Growing Together', icon: TrendingUp },
 ] as const
 
 export default function LoginPage() {
@@ -195,8 +194,7 @@ export default function LoginPage() {
               className="absolute inset-0 h-full w-full object-cover object-center"
             />
           </picture>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#071527]/90 via-[#071527]/45 to-[#0B1F3A]/15" />
-          <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_20%_20%,rgba(255,255,255,0.12),transparent_60%)]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff]/92 via-[#f4f8ff]/65 to-transparent" />
 
           <div className="relative z-10 flex items-center gap-3">
             <img
@@ -204,40 +202,41 @@ export default function LoginPage() {
               alt=""
               width={40}
               height={40}
-              className="h-10 w-10 rounded-xl shadow-lg ring-1 ring-white/30"
+              className="h-10 w-10 rounded-xl shadow-sm ring-1 ring-slate-200/80"
             />
             <div className="leading-tight">
-              <p className="font-display text-lg font-bold tracking-tight text-white">ParkPro</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
-                {t('app.tagline')}
+              <p className="font-display text-lg font-bold tracking-tight text-[#0B1F3A]">Poriya Group</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                STRONGER TOGETHER
               </p>
             </div>
           </div>
 
           <div className="relative z-10 max-w-md">
-            <h2 className="font-display text-[40px] font-bold leading-[1.1] tracking-tight text-white xl:text-[46px]">
-              {t('login.heroTitle')}
+            <p className="font-display text-2xl font-medium text-slate-500 xl:text-3xl">Welcome To</p>
+            <h2 className="font-display text-[40px] font-bold leading-[1.08] tracking-tight text-[#0B1F3A] xl:text-[46px]">
+              Poriya Group
             </h2>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75 xl:text-base">
-              {t('login.heroSubtitle')}
+            <div className="mt-3 h-1 w-8 rounded-full bg-[#1868FE]" />
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-600 xl:text-base">
+              Your trusted partner in growth, innovation and long-term success.
             </p>
-            <ul className="mt-8 space-y-3">
+            <div className="mt-7 flex items-center gap-6">
               {HERO_FEATURES.map((feature) => (
-                <li key={feature.key} className="flex items-center gap-3 text-sm font-medium text-white/85">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur-sm">
-                    <feature.icon className="h-4 w-4 text-sky-300" aria-hidden="true" />
+                <div key={feature.label} className="flex flex-col items-center text-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1868FE] shadow-sm ring-1 ring-slate-200/80">
+                    <feature.icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  {t(feature.key)}
-                </li>
+                  <span className="mt-1.5 text-[11px] font-semibold leading-tight text-[#0B1F3A]">
+                    {feature.label}
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
 
-          <div className="relative z-10 flex items-center gap-2 text-[11px] font-medium text-white/55">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            <span>{t('auth.secureLogin')}</span>
-            <span className="mx-0.5">·</span>
-            <span>ParkPro 1.0.0</span>
+          <div className="relative z-10 text-sm font-medium italic text-slate-600">
+            Build Today for a Better Tomorrow
           </div>
         </aside>
 
@@ -254,10 +253,10 @@ export default function LoginPage() {
               />
               <div className="leading-tight">
                 <p className="font-display text-base font-bold tracking-tight text-[#0B1F3A] dark:text-white">
-                  ParkPro
+                  Poriya Group
                 </p>
                 <p className="hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-navy-300 min-[380px]:block">
-                  {t('app.tagline')}
+                  STRONGER TOGETHER
                 </p>
               </div>
             </div>
