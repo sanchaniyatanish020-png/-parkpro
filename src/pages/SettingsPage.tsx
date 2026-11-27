@@ -185,9 +185,10 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setDetailsOpen((v) => !v)}
-          className="shrink-0 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 transition hover:bg-white/25 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 transition hover:bg-white/25 active:scale-95"
         >
-          {t('common.details')}
+          <span aria-hidden="true">{detailsOpen ? '🙈' : '👁️'}</span>
+          <span>{t('common.details')}</span>
         </button>
       </div>
 
