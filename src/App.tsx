@@ -3,7 +3,6 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { StaffPermissionKey } from '@/types'
 import { defaultHomeRoute } from '@/lib/permissions'
 import { AppShell } from '@/components/AppShell'
-import { Logo } from '@/components/Logo'
 import { useAuth } from '@/state/AuthContext'
 import { DataProvider } from '@/state/DataContext'
 
@@ -23,7 +22,7 @@ const EmployeesPage = lazy(() => import('@/pages/EmployeesPage'))
 function BootSplash() {
   return (
     <div className="mesh-navy flex min-h-dvh flex-col items-center justify-center gap-4 text-white">
-      <Logo size={56} invert wordmarkClass="text-white text-[28px]" />
+      <img src="/images/poriya-logo.png" alt="Poriya Group" className="h-20 w-auto object-contain" />
       <span className="h-1.5 w-28 overflow-hidden rounded-full bg-white/15" aria-label="Loading">
         <span className="block h-full w-1/2 animate-pulse rounded-full bg-amber-500" />
       </span>
