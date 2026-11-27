@@ -166,34 +166,27 @@ export default function LoginPage() {
     <div className="relative min-h-dvh overflow-x-hidden bg-[#EAF1FB] text-slate-900 dark:bg-navy-950 dark:text-white">
       {/* Full-page background image — mobile and tablet (desktop uses the brand panel) */}
       <div aria-hidden="true" className="fixed inset-0 z-0 lg:hidden">
-        <picture>
-          <source srcSet="/images/login-bg.webp" type="image/webp" />
-          <img
-            src="/images/login-bg.jpg"
-            alt=""
-            width={1920}
-            height={1097}
-            decoding="async"
-            className="h-full w-full object-cover object-[50%_58%] dark:opacity-60"
-          />
-        </picture>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#f4f8ff]/65 via-white/35 to-[#e8f0fb]/80 dark:from-navy-950/85 dark:via-navy-950/65 dark:to-navy-950/90" />
-        <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_38%,rgba(255,255,255,0.45),rgba(255,255,255,0.05)_55%,rgba(255,255,255,0.3)_100%)] dark:hidden" />
+        <img
+          src="/images/login-bg.jpg?v=2"
+          alt=""
+          width={1920}
+          height={1097}
+          decoding="async"
+          className="h-full w-full object-cover object-[50%_20%] dark:opacity-60"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f4f8ff]/75 via-[#f4f8ff]/45 to-[#e8f0fb]/90 dark:from-navy-950/85 dark:via-navy-950/65 dark:to-navy-950/90" />
       </div>
 
       <div className="relative z-10 lg:grid lg:min-h-dvh lg:grid-cols-[1.05fr_minmax(440px,0.95fr)]">
         {/* Brand panel — desktop only */}
         <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
-          <picture>
-            <source srcSet="/images/login-bg.webp" type="image/webp" />
-            <img
-              src="/images/login-bg.jpg"
-              alt=""
-              width={1920}
-              height={1097}
-              className="absolute inset-0 h-full w-full object-cover object-center"
-            />
-          </picture>
+          <img
+            src="/images/login-bg.jpg?v=2"
+            alt=""
+            width={1920}
+            height={1097}
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff]/92 via-[#f4f8ff]/65 to-transparent" />
 
           <div className="relative z-10 flex items-center gap-3">
@@ -263,8 +256,32 @@ export default function LoginPage() {
             {languageSelect}
           </header>
 
-          <main className="flex flex-1 items-center justify-center px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 sm:px-6 lg:px-8 lg:py-8">
-            <div className="w-full max-w-[420px] rounded-[24px] border border-white/70 bg-white/[0.88] p-4 shadow-[0_24px_70px_-24px_rgba(11,31,58,0.45)] backdrop-blur-xl sm:rounded-[30px] sm:p-7 lg:border-slate-200/70 lg:bg-white lg:shadow-[0_30px_80px_-40px_rgba(11,31,58,0.35)] dark:border-white/10 dark:bg-navy-900/85 dark:lg:bg-navy-900/70">
+          <main className="flex flex-1 flex-col items-center justify-center px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 sm:px-6 lg:px-8 lg:py-8">
+            {/* Mobile hero — matches mobile mockup */}
+            <div className="mb-3 w-full max-w-[420px] px-1 lg:hidden">
+              <p className="font-display text-lg font-medium text-slate-600 dark:text-navy-200">Welcome To</p>
+              <h2 className="font-display text-2xl font-bold leading-tight tracking-tight text-[#0B1F3A] dark:text-white">
+                Poriya Group
+              </h2>
+              <div className="mt-1.5 h-0.5 w-7 rounded-full bg-[#1868FE]" />
+              <p className="mt-1.5 text-xs leading-snug text-slate-600 dark:text-navy-300">
+                Your trusted partner in growth, innovation and long-term success.
+              </p>
+              <div className="mt-2.5 flex items-center gap-4">
+                {HERO_FEATURES.map((feature) => (
+                  <div key={feature.label} className="flex items-center gap-1.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#1868FE] shadow-sm">
+                      <feature.icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                    <span className="text-[10px] font-semibold leading-tight text-[#0B1F3A] dark:text-white">
+                      {feature.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full max-w-[420px] rounded-[24px] border border-white/70 bg-white/[0.92] p-4 shadow-[0_24px_70px_-24px_rgba(11,31,58,0.45)] backdrop-blur-xl sm:rounded-[30px] sm:p-7 lg:border-slate-200/70 lg:bg-white lg:shadow-[0_30px_80px_-40px_rgba(11,31,58,0.35)] dark:border-white/10 dark:bg-navy-900/85 dark:lg:bg-navy-900/70">
               <div className="mb-3 sm:mb-4">
                 <h1 className="font-display text-[22px] font-bold tracking-tight text-[#0B1F3A] sm:text-[26px] dark:text-white">
                   {t('auth.welcome')}
