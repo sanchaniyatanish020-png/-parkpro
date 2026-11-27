@@ -185,16 +185,16 @@ export async function exportPdfReport(data: ReportExportData, filename: string) 
     doc.text('ONLINE (UPI)', 350, y + 20)
     doc.setFontSize(14)
     doc.setTextColor(11, 31, 58)
-    doc.text(`₹${data.totalRevenue.toLocaleString('en-IN')}`, 56, y + 38)
-    doc.text(`₹${(data.cashTotal ?? 0).toLocaleString('en-IN')}`, 210, y + 38)
-    doc.text(`₹${(data.onlineTotal ?? 0).toLocaleString('en-IN')}`, 350, y + 38)
+    doc.text(`Rs. ${data.totalRevenue.toLocaleString('en-IN')}`, 56, y + 38)
+    doc.text(`Rs. ${(data.cashTotal ?? 0).toLocaleString('en-IN')}`, 210, y + 38)
+    doc.text(`Rs. ${(data.onlineTotal ?? 0).toLocaleString('en-IN')}`, 350, y + 38)
   } else {
     doc.text('TOTAL REVENUE', 56, y + 20)
     doc.text('PASSES SOLD', 210, y + 20)
     doc.text('WALK-IN ENTRIES', 350, y + 20)
     doc.setFontSize(14)
     doc.setTextColor(11, 31, 58)
-    doc.text(`₹${data.totalRevenue.toLocaleString('en-IN')}`, 56, y + 38)
+    doc.text(`Rs. ${data.totalRevenue.toLocaleString('en-IN')}`, 56, y + 38)
     doc.text(String(data.passes.length), 210, y + 38)
     doc.text(String(data.walkins.length), 350, y + 38)
   }
@@ -213,7 +213,7 @@ export async function exportPdfReport(data: ReportExportData, filename: string) 
       item.kind.toUpperCase(),
       item.paymentMode.toUpperCase(),
       item.collectedBy ?? 'Staff / Admin',
-      `₹${item.amount.toLocaleString('en-IN')}`,
+      `Rs. ${item.amount.toLocaleString('en-IN')}`,
     ])
 
     autoTable(doc, {
@@ -254,7 +254,7 @@ export async function exportPdfReport(data: ReportExportData, filename: string) 
       formatPlate(pass.vehicle),
       pass.plan.toUpperCase(),
       `${formatDateShort(pass.startDate, 'en')} – ${formatDateShort(pass.endDate, 'en')}`,
-      `₹${pass.amount.toLocaleString('en-IN')}`,
+      `Rs. ${pass.amount.toLocaleString('en-IN')}`,
     ])
 
     autoTable(doc, {
@@ -345,7 +345,7 @@ export async function exportPassesList(
       formatPlate(p.vehicle),
       p.plan.toUpperCase(),
       `${formatDateShort(p.startDate, 'en')} – ${formatDateShort(p.endDate, 'en')}`,
-      `₹${p.amount.toLocaleString('en-IN')}`,
+      `Rs. ${p.amount.toLocaleString('en-IN')}`,
     ])
 
     autoTable(doc, {
