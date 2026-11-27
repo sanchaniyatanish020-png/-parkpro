@@ -235,11 +235,16 @@ export default function ScanPage() {
 
         let text: string | null = null
         if (detector) {
-          const codes = await detector.detect(canvas)
-          text = codes[0]?.rawValue ?? null
-        } else if (context) {
+          try {
+            const codes = await detector.detect(canvas)
+            text = codes[0]?.rawValue ?? null
+          } catch {
+            detector = null
+          }
+        }
+        if (!text && context) {
           const image = context.getImageData(0, 0, 480, 480)
-          text = jsQR(image.data, 480, 480, { inversionAttempts: 'dontInvert' })?.data ?? null
+          text = jsQR(image.data, 480, 480, { inversionAttempts: 'attemptBoth' })?.data ?? null
         }
 
         if (text && !cancelled) {
