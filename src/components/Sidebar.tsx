@@ -50,37 +50,39 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[268px] flex-col mesh-navy text-white lg:flex">
-      <div className="flex h-[76px] shrink-0 items-center px-5">
+      <div className="flex h-[68px] shrink-0 items-center px-5">
         <Logo size={34} invert wordmarkClass="text-white text-xl" />
       </div>
 
-      {main.length > 0 && (
-        <>
-          <div className="px-5 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
-            {mainLabel}
-          </div>
-          <nav aria-label="Main" className="space-y-1 px-3">
-            {main.map((item) => (
-              <SidebarLink key={item.to} item={item} />
-            ))}
-          </nav>
-        </>
-      )}
+      <div className="flex-1 overflow-y-auto py-1">
+        {main.length > 0 && (
+          <>
+            <div className="px-5 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
+              {mainLabel}
+            </div>
+            <nav aria-label="Main" className="space-y-0.5 px-3">
+              {main.map((item) => (
+                <SidebarLink key={item.to} item={item} />
+              ))}
+            </nav>
+          </>
+        )}
 
-      {secondary.length > 0 && (
-        <>
-          <div className="px-5 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
-            {secondaryLabel}
-          </div>
-          <nav aria-label="Additional tools" className="space-y-1 px-3">
-            {secondary.map((item) => (
-              <SidebarLink key={item.to} item={item} />
-            ))}
-          </nav>
-        </>
-      )}
+        {secondary.length > 0 && (
+          <>
+            <div className="px-5 pb-1.5 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-navy-300">
+              {secondaryLabel}
+            </div>
+            <nav aria-label="Additional tools" className="space-y-0.5 px-3">
+              {secondary.map((item) => (
+                <SidebarLink key={item.to} item={item} />
+              ))}
+            </nav>
+          </>
+        )}
+      </div>
 
-      <div className="mt-auto space-y-3 px-3 pb-4">
+      <div className="shrink-0 space-y-2.5 border-t border-white/10 px-3 pb-3 pt-2.5">
         <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-navy-100">
@@ -146,7 +148,7 @@ function SidebarLink({ item }: { item: NavItem }) {
       end={item.end}
       className={({ isActive }) =>
         cn(
-          'flex min-h-[48px] items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
+          'flex min-h-[40px] items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
           isActive
             ? 'bg-white/12 text-white shadow-[inset_3px_0_0_0_#1868FE]'
             : 'text-navy-200 hover:bg-white/[0.06] hover:text-white',
