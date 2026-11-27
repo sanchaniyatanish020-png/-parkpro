@@ -35,6 +35,7 @@ import { useToast } from '@/state/ToastContext'
 import { Avatar, Badge, Button, Segmented, Skeleton } from '@/components/ui'
 import { Sheet } from '@/components/Sheet'
 import { OccupancyMeter } from '@/components/OccupancyMeter'
+import { LoginSecurityCard } from '@/components/LoginSecurityCard'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { openWhatsApp, callNumber } from '@/lib/share'
 import {
@@ -470,6 +471,8 @@ export default function AdminHome() {
             )}
           </div>
         )}
+
+        {(can('employees') || can('siteSettings')) && <LoginSecurityCard />}
 
         {showDashboard && (
           <section className="mt-5" aria-labelledby="expiring-title">

@@ -150,6 +150,25 @@ db.exec(`
     UNIQUE(user_id, leave_date)
   );
   CREATE INDEX IF NOT EXISTS idx_emp_leaves_user ON employee_leaves(user_id, leave_date);
+
+  CREATE TABLE IF NOT EXISTS login_lockouts (
+    account_key TEXT PRIMARY KEY,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    last_failed_at TEXT,
+    locked_until TEXT,
+    last_success_at TEXT,
+    last_ip TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS login_events (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    user_id TEXT,
+    outcome TEXT NOT NULL CHECK (outcome IN ('success', 'failed', 'locked')),
+    ip TEXT,
+    at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_login_events_at ON login_events(at);
 `)
 
 const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: string }[]

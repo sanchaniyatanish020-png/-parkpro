@@ -130,10 +130,34 @@ export interface ScanResponse {
   daysLeft?: number
 }
 
+export interface LoginSecurityEvent {
+  id: string
+  username: string
+  userId?: string
+  outcome: 'success' | 'failed' | 'locked'
+  ip?: string
+  at: string
+}
+
+export interface LoginSecuritySummary {
+  totalFailed: number
+  lockedAccounts: {
+    accountKey: string
+    failedCount: number
+    lockedUntil: string
+    lastIp?: string
+  }[]
+  recentSuccess: LoginSecurityEvent[]
+  recentFailed: LoginSecurityEvent[]
+  lockoutHistory: LoginSecurityEvent[]
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly lockedUntil?: string,
+    readonly remainingSeconds?: number,
   ) {
     super(message)
   }
@@ -196,8 +220,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    const data = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new ApiError(response.status, data?.error ?? `Request failed (${response.status})`)
+    const data = (await response.json().catch(() => null)) as {
+      error?: string
+      lockedUntil?: string
+      remainingSeconds?: number
+    } | null
+    throw new ApiError(
+      response.status,
+      data?.error ?? `Request failed (${response.status})`,
+      data?.lockedUntil,
+      data?.remainingSeconds,
+    )
   }
 
   if (response.status === 204) return undefined as T
@@ -212,6 +245,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
+
+  loginSecurity: () => request<LoginSecuritySummary>('/auth/security'),
 
   demoLogin: (role: Role) =>
     request<AuthResponse>('/auth/demo', {

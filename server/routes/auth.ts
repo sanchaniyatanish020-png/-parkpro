@@ -1,7 +1,16 @@
 import { Router, type Request } from 'express'
-import { authenticate, hashPassword, issueToken, publicUser, verifyPassword } from '../auth'
+import { authenticate, hashPassword, issueToken, publicUser, requirePermission, verifyPassword } from '../auth'
 import { env } from '../env'
-import { findUserByUsername, recordEmployeeLogin, recordEmployeeLogout, updateUserPassword } from '../repository'
+import {
+  findUserByUsername,
+  getLoginLockout,
+  getLoginSecuritySummary,
+  recordEmployeeLogin,
+  recordEmployeeLogout,
+  recordLoginFailure,
+  recordLoginSuccess,
+  updateUserPassword,
+} from '../repository'
 import { asObject, fail, oneOf, str } from '../validate'
 
 const router = Router()
@@ -38,15 +47,49 @@ router.post('/login', (req, res) => {
   const username = str(body.username, 'Username', { max: 64 })
   const password = str(body.password, 'Password', { max: 128 })
 
+  const accountKey = username.trim().toLowerCase()
+  const existingLock = getLoginLockout(accountKey)
+  if (existingLock?.lockedUntil) {
+    const remainingMs = new Date(existingLock.lockedUntil).getTime() - Date.now()
+    if (remainingMs > 0) {
+      res.status(423).json({
+        error: 'Your account has been temporarily locked due to multiple failed login attempts. Please try again after 15 minutes.',
+        lockedUntil: existingLock.lockedUntil,
+        remainingSeconds: Math.ceil(remainingMs / 1000),
+      })
+      return
+    }
+  }
+
   const user = findUserByUsername(username)
   if (!user || !verifyPassword(password, user.passwordHash)) {
     recordFailure(key)
-    fail(401, 'Wrong username or password')
+    const { failedCount, lockedUntil } = recordLoginFailure(accountKey, username.trim(), user?.id, key)
+    if (failedCount >= 5 && lockedUntil) {
+      res.status(423).json({
+        error: 'Your account has been temporarily locked for 15 minutes.',
+        lockedUntil,
+        remainingSeconds: 15 * 60,
+      })
+      return
+    }
+    if (failedCount === 4) {
+      fail(401, 'Warning: Only 1 login attempt remaining. Your account will be temporarily locked after another failed attempt.')
+    }
+    if (failedCount === 3) {
+      fail(401, 'Warning: You have 2 login attempts remaining.')
+    }
+    fail(401, 'Invalid username or password.')
   }
   if (!user.active) fail(403, 'This staff account has been disabled. Contact the administrator.')
   attempts.delete(key)
+  recordLoginSuccess(accountKey, user.username, user.id, key)
   recordEmployeeLogin(user.id)
   res.json({ token: issueToken(user), user: publicUser(user) })
+})
+
+router.get('/security', authenticate, requirePermission('employees', 'siteSettings'), (_req, res) => {
+  res.json(getLoginSecuritySummary())
 })
 
 router.post('/demo', (req, res) => {

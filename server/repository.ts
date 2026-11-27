@@ -763,6 +763,129 @@ export function deleteEmployeeLeave(leaveId: string, userId: string): boolean {
   return Number(result.changes) > 0
 }
 
+/* ------------------------------- login security ------------------------------ */
+
+export interface LoginLockoutRecord {
+  accountKey: string
+  failedCount: number
+  lastFailedAt?: string
+  lockedUntil?: string
+  lastSuccessAt?: string
+  lastIp?: string
+}
+
+export interface LoginEventRecord {
+  id: string
+  username: string
+  userId?: string
+  outcome: 'success' | 'failed' | 'locked'
+  ip?: string
+  at: string
+}
+
+export function getLoginLockout(accountKey: string): LoginLockoutRecord | null {
+  const row = stmt('SELECT * FROM login_lockouts WHERE account_key = ?').get(accountKey) as Row | undefined
+  if (!row) return null
+  return {
+    accountKey: String(row.account_key),
+    failedCount: Number(row.failed_count ?? 0),
+    lastFailedAt: row.last_failed_at ? String(row.last_failed_at) : undefined,
+    lockedUntil: row.locked_until ? String(row.locked_until) : undefined,
+    lastSuccessAt: row.last_success_at ? String(row.last_success_at) : undefined,
+    lastIp: row.last_ip ? String(row.last_ip) : undefined,
+  }
+}
+
+export function recordLoginFailure(
+  accountKey: string,
+  username: string,
+  userId: string | undefined,
+  ip: string,
+): { failedCount: number; lockedUntil?: string } {
+  const now = new Date()
+  const nowIso = now.toISOString()
+  const current = getLoginLockout(accountKey)
+  const prevCount = current && (!current.lockedUntil || new Date(current.lockedUntil).getTime() <= now.getTime())
+    ? current.failedCount
+    : 0
+  const nextCount = prevCount + 1
+  const lockedUntil = nextCount >= 5 ? new Date(now.getTime() + 15 * 60_000).toISOString() : null
+
+  stmt(
+    `INSERT INTO login_lockouts (account_key, failed_count, last_failed_at, locked_until, last_ip)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_key) DO UPDATE SET
+       failed_count = excluded.failed_count,
+       last_failed_at = excluded.last_failed_at,
+       locked_until = excluded.locked_until,
+       last_ip = excluded.last_ip`,
+  ).run(accountKey, nextCount, nowIso, lockedUntil, ip)
+
+  stmt('INSERT INTO login_events (id, username, user_id, outcome, ip, at) VALUES (?, ?, ?, ?, ?, ?)').run(
+    `le_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    username,
+    userId ?? null,
+    nextCount >= 5 ? 'locked' : 'failed',
+    ip,
+    nowIso,
+  )
+
+  return { failedCount: nextCount, lockedUntil: lockedUntil ?? undefined }
+}
+
+export function recordLoginSuccess(accountKey: string, username: string, userId: string, ip: string): void {
+  const nowIso = new Date().toISOString()
+  stmt(
+    `INSERT INTO login_lockouts (account_key, failed_count, locked_until, last_success_at, last_ip)
+     VALUES (?, 0, NULL, ?, ?)
+     ON CONFLICT(account_key) DO UPDATE SET
+       failed_count = 0,
+       locked_until = NULL,
+       last_success_at = excluded.last_success_at,
+       last_ip = excluded.last_ip`,
+  ).run(accountKey, nowIso, ip)
+
+  stmt('INSERT INTO login_events (id, username, user_id, outcome, ip, at) VALUES (?, ?, ?, ?, ?, ?)').run(
+    `le_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    username,
+    userId,
+    'success',
+    ip,
+    nowIso,
+  )
+}
+
+export function getLoginSecuritySummary() {
+  const nowIso = new Date().toISOString()
+  const totalFailedRow = stmt("SELECT COUNT(*) AS count FROM login_events WHERE outcome IN ('failed', 'locked')").get() as Row
+  const lockedRows = stmt('SELECT * FROM login_lockouts WHERE locked_until IS NOT NULL AND locked_until > ? ORDER BY locked_until DESC').all(nowIso) as Row[]
+  const recentSuccessRows = stmt("SELECT * FROM login_events WHERE outcome = 'success' ORDER BY at DESC LIMIT 10").all() as Row[]
+  const recentFailedRows = stmt("SELECT * FROM login_events WHERE outcome IN ('failed', 'locked') ORDER BY at DESC LIMIT 15").all() as Row[]
+  const lockoutHistoryRows = stmt("SELECT * FROM login_events WHERE outcome = 'locked' ORDER BY at DESC LIMIT 10").all() as Row[]
+
+  const toEvent = (r: Row): LoginEventRecord => ({
+    id: String(r.id),
+    username: String(r.username),
+    userId: r.user_id ? String(r.user_id) : undefined,
+    outcome: r.outcome as LoginEventRecord['outcome'],
+    ip: r.ip ? String(r.ip) : undefined,
+    at: String(r.at),
+  })
+
+  return {
+    totalFailed: Number(totalFailedRow?.count ?? 0),
+    lockedAccounts: lockedRows.map((r) => ({
+      accountKey: String(r.account_key),
+      failedCount: Number(r.failed_count ?? 0),
+      lockedUntil: String(r.locked_until),
+      lastIp: r.last_ip ? String(r.last_ip) : undefined,
+    })),
+    recentSuccess: recentSuccessRows.map(toEvent),
+    recentFailed: recentFailedRows.map(toEvent),
+    lockoutHistory: lockoutHistoryRows.map(toEvent),
+  }
+}
+
 /* ---------------------------------- reset ---------------------------------- */
 
 export function clearAllData(): void {

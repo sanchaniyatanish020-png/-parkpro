@@ -39,6 +39,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(settings.rememberDevice)
   const [busy, setBusy] = useState(false)
+  const [lockoutSeconds, setLockoutSeconds] = useState(0)
   const [forgotOpen, setForgotOpen] = useState(false)
   const [demoEnabled, setDemoEnabled] = useState(true)
 
@@ -55,14 +56,30 @@ export default function LoginPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return
+    const timer = window.setInterval(() => {
+      setLockoutSeconds((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [lockoutSeconds])
+
   if (authenticated) {
     return <Navigate to={defaultHomeRoute(activeRole, permissions)} replace />
   }
 
   const describeError = (err: unknown) => {
-    if (err instanceof ApiError && err.status === 401) return t('auth.wrongPin')
     if (err instanceof ApiError && err.status === 0) return t('common.offlineBanner')
+    if (err instanceof ApiError && (err.status === 401 || err.status === 423 || err.status === 429)) {
+      return err.message
+    }
     return err instanceof Error ? err.message : t('auth.wrongPin')
+  }
+
+  const formatCountdown = (sec: number) => {
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -79,7 +96,15 @@ export default function LoginPage() {
       playSound('success', settings.sound)
       vibrate(HAPTIC.success, settings.haptics)
     } catch (err) {
-      setError(describeError(err))
+      if (err instanceof ApiError && err.status === 423 && err.remainingSeconds) {
+        setLockoutSeconds(err.remainingSeconds)
+      }
+      const msg = describeError(err)
+      setError(
+        err instanceof ApiError && err.status === 423 && err.remainingSeconds
+          ? `${msg} (${formatCountdown(err.remainingSeconds)} remaining)`
+          : msg,
+      )
       playSound('error', settings.sound)
       vibrate(HAPTIC.error, settings.haptics)
     } finally {
@@ -95,7 +120,15 @@ export default function LoginPage() {
       playSound('success', settings.sound)
       vibrate(HAPTIC.success, settings.haptics)
     } catch (err) {
-      setError(describeError(err))
+      if (err instanceof ApiError && err.status === 423 && err.remainingSeconds) {
+        setLockoutSeconds(err.remainingSeconds)
+      }
+      const msg = describeError(err)
+      setError(
+        err instanceof ApiError && err.status === 423 && err.remainingSeconds
+          ? `${msg} (${formatCountdown(err.remainingSeconds)} remaining)`
+          : msg,
+      )
       playSound('error', settings.sound)
       vibrate(HAPTIC.error, settings.haptics)
     } finally {
