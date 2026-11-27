@@ -61,12 +61,12 @@ export function buildWhatsappTemplate(
 
   if (windowType === '3_days') {
     return [
-      `Hello ${customerName}! 👋`,
+      `Hello ${customerName}!`,
       ``,
       `Your parking pass is going to expire soon in 3 days.`,
-      `🚗 Vehicle Number: ${vehicleNumber}`,
-      `🎫 Pass Type: ${passType}`,
-      `📅 Expiry Date: ${expiryDate}`,
+      `- Vehicle Number: ${vehicleNumber}`,
+      `- Pass Type: ${passType}`,
+      `- Expiry Date: ${expiryDate}`,
       ``,
       `Please renew your parking pass to continue using our parking facility without interruption.`,
       ``,
@@ -77,12 +77,12 @@ export function buildWhatsappTemplate(
 
   if (windowType === '1_day') {
     return [
-      `Hello ${customerName}! 👋`,
+      `Hello ${customerName}!`,
       ``,
-      `⚠️ URGENT REMINDER: Your parking pass will expire TOMORROW!`,
-      `🚗 Vehicle Number: ${vehicleNumber}`,
-      `🎫 Pass Type: ${passType}`,
-      `📅 Expiry Date: ${expiryDate}`,
+      `URGENT REMINDER: Your parking pass will expire TOMORROW!`,
+      `- Vehicle Number: ${vehicleNumber}`,
+      `- Pass Type: ${passType}`,
+      `- Expiry Date: ${expiryDate}`,
       ``,
       `Please renew your pass today to ensure hassle-free entry and exit at the gate.`,
       ``,
@@ -93,12 +93,12 @@ export function buildWhatsappTemplate(
 
   if (windowType === 'today') {
     return [
-      `Hello ${customerName}! 👋`,
+      `Hello ${customerName}!`,
       ``,
-      `🚨 FINAL REMINDER: Your parking pass is EXPIRING TODAY!`,
-      `🚗 Vehicle Number: ${vehicleNumber}`,
-      `🎫 Pass Type: ${passType}`,
-      `📅 Expiry Date: ${expiryDate} (Today)`,
+      `FINAL REMINDER: Your parking pass is EXPIRING TODAY!`,
+      `- Vehicle Number: ${vehicleNumber}`,
+      `- Pass Type: ${passType}`,
+      `- Expiry Date: ${expiryDate} (Today)`,
       ``,
       `Kindly renew your parking pass immediately to avoid daily parking charges or gate delays.`,
       ``,
@@ -109,11 +109,11 @@ export function buildWhatsappTemplate(
 
   // Pass already expired
   return [
-    `Hello ${customerName}! 👋`,
+    `Hello ${customerName}!`,
     ``,
-    `⛔ NOTICE: Your parking pass has EXPIRED on ${expiryDate}.`,
-    `🚗 Vehicle Number: ${vehicleNumber}`,
-    `🎫 Pass Type: ${passType}`,
+    `NOTICE: Your parking pass has EXPIRED on ${expiryDate}.`,
+    `- Vehicle Number: ${vehicleNumber}`,
+    `- Pass Type: ${passType}`,
     ``,
     `To continue using our parking facility, please renew your pass as soon as possible.`,
     ``,
