@@ -264,13 +264,13 @@ export default function LoginPage() {
             {languageSelect}
           </header>
 
-          <main className="flex flex-1 items-center justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 sm:px-6 lg:px-8 lg:py-8">
-            <div className="w-full max-w-[430px] rounded-[28px] border border-white/70 bg-white/[0.82] p-5 shadow-[0_24px_70px_-24px_rgba(11,31,58,0.45)] backdrop-blur-xl sm:rounded-[30px] sm:p-7 lg:border-slate-200/70 lg:bg-white lg:shadow-[0_30px_80px_-40px_rgba(11,31,58,0.35)] dark:border-white/10 dark:bg-navy-900/85 dark:lg:bg-navy-900/70">
-              <div className="mb-4">
-                <h1 className="font-display text-[26px] font-bold tracking-tight text-[#0B1F3A] dark:text-white">
+          <main className="flex flex-1 items-center justify-center px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 sm:px-6 lg:px-8 lg:py-8">
+            <div className="w-full max-w-[420px] rounded-[24px] border border-white/70 bg-white/[0.88] p-4 shadow-[0_24px_70px_-24px_rgba(11,31,58,0.45)] backdrop-blur-xl sm:rounded-[30px] sm:p-7 lg:border-slate-200/70 lg:bg-white lg:shadow-[0_30px_80px_-40px_rgba(11,31,58,0.35)] dark:border-white/10 dark:bg-navy-900/85 dark:lg:bg-navy-900/70">
+              <div className="mb-3 sm:mb-4">
+                <h1 className="font-display text-[22px] font-bold tracking-tight text-[#0B1F3A] sm:text-[26px] dark:text-white">
                   {t('auth.welcome')}
                 </h1>
-                <p className="mt-1 text-sm font-normal text-slate-500 dark:text-navy-300">
+                <p className="mt-0.5 text-xs font-normal text-slate-500 sm:mt-1 sm:text-sm dark:text-navy-300">
                   {t('auth.pinSubtitle')}
                 </p>
               </div>
