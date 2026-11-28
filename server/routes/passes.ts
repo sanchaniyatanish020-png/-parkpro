@@ -1,8 +1,17 @@
 import { Router } from 'express'
 import { authenticate, requirePermission } from '../auth'
 import { parsePassBody } from '../parsers'
-import { deletePass, findActivePassByPhone, findActivePassByVehicle, getPass, listPasses, tokenExists, upsertPass } from '../repository'
-import { asObject, fail } from '../validate'
+import {
+  applyKhataTransaction,
+  deletePass,
+  findActivePassByPhone,
+  findActivePassByVehicle,
+  getPass,
+  listPasses,
+  tokenExists,
+  upsertPass,
+} from '../repository'
+import { asObject, fail, num } from '../validate'
 
 const router = Router()
 router.use(authenticate)
@@ -23,7 +32,8 @@ router.get('/', requirePermission('passes', 'managePasses', 'scan', 'parked', 'h
 })
 
 router.post('/', requirePermission('managePasses'), (req, res) => {
-  const pass = parsePassBody(asObject(req.body))
+  const rawBody = asObject(req.body)
+  const pass = parsePassBody(rawBody)
   if (!pass.token) pass.token = generateToken()
   else if (tokenExists(pass.token)) fail(409, 'Pass code already in use')
   pass.collectedBy = req.user!.name
@@ -34,6 +44,49 @@ router.post('/', requirePermission('managePasses'), (req, res) => {
   if (dupPhone) fail(409, `An active pass already exists for phone number ${pass.phone} (Pass: ${dupPhone.token})`)
   const dupVehicle = findActivePassByVehicle(pass.vehicle)
   if (dupVehicle) fail(409, `An active pass already exists for vehicle ${pass.vehicle} (Pass: ${dupVehicle.token})`)
+
+  const advanceUsed = rawBody.advanceUsed == null ? 0 : num(rawBody.advanceUsed, 'Advance used', { min: 0, max: 1_000_000 })
+  const advanceSaved = rawBody.advanceSaved == null ? 0 : num(rawBody.advanceSaved, 'Advance saved', { min: 0, max: 1_000_000 })
+
+  if (advanceUsed > pass.amount) {
+    fail(400, 'Advance used cannot exceed pass amount')
+  }
+
+  if (advanceUsed > 0) {
+    try {
+      applyKhataTransaction({
+        phone: pass.phone,
+        customerName: pass.name,
+        vehicle: pass.vehicle,
+        passId: pass.id,
+        passToken: pass.token,
+        type: 'debit',
+        amountUsed: advanceUsed,
+        paymentMode: pass.paymentMode,
+        description: `Used advance balance for pass ${pass.token}`,
+        byName: req.user!.name,
+        byUsername: req.user!.username,
+      })
+    } catch (err) {
+      fail(400, err instanceof Error ? err.message : 'Insufficient advance balance')
+    }
+  }
+
+  if (advanceSaved > 0) {
+    applyKhataTransaction({
+      phone: pass.phone,
+      customerName: pass.name,
+      vehicle: pass.vehicle,
+      passId: pass.id,
+      passToken: pass.token,
+      type: 'credit',
+      amountAdded: advanceSaved,
+      paymentMode: 'cash',
+      description: `Saved cash change as advance for pass ${pass.token}`,
+      byName: req.user!.name,
+      byUsername: req.user!.username,
+    })
+  }
 
   upsertPass(pass)
   res.status(201).json({ pass })

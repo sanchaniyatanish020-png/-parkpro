@@ -38,6 +38,8 @@ export interface Pass {
   amount: number
   paymentMode?: PaymentMode
   transactionId?: string
+  advanceUsed?: number
+  advanceSaved?: number
   collectedBy?: string
   collectedByUsername?: string
   slot?: string
@@ -72,6 +74,8 @@ export interface WalkIn {
   amount: number
   paymentMode?: PaymentMode
   transactionId?: string
+  advanceUsed?: number
+  advanceSaved?: number
   collectedBy?: string
   collectedByUsername?: string
   at: string
@@ -163,6 +167,8 @@ export interface NewPassInput {
   amount: number
   paymentMode?: PaymentMode
   transactionId?: string
+  advanceUsed?: number
+  advanceSaved?: number
   collectedBy?: string
   collectedByUsername?: string
   slot?: string

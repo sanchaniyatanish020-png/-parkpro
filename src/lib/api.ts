@@ -130,6 +130,39 @@ export interface ScanResponse {
   daysLeft?: number
 }
 
+export interface CustomerBalance {
+  phone: string
+  name: string
+  vehicle?: string
+  balance: number
+  updatedAt: string
+}
+
+export interface KhataTransaction {
+  id: string
+  phone: string
+  customerName: string
+  vehicle?: string
+  passId?: string
+  passToken?: string
+  type: 'credit' | 'debit' | 'adjustment'
+  prevBalance: number
+  amountAdded: number
+  amountUsed: number
+  newBalance: number
+  paymentMode?: string
+  description: string
+  byName?: string
+  byUsername?: string
+  at: string
+}
+
+export interface KhataSummary {
+  balances: CustomerBalance[]
+  totalOutstanding: number
+  transactions: KhataTransaction[]
+}
+
 export interface LoginSecurityEvent {
   id: string
   username: string
@@ -247,6 +280,24 @@ export const api = {
     }),
 
   loginSecurity: () => request<LoginSecuritySummary>('/auth/security'),
+
+  khataList: () => request<KhataSummary>('/khata'),
+  khataByPhone: (phone: string) =>
+    request<{ balance: CustomerBalance | null; transactions: KhataTransaction[] }>(
+      `/khata/${encodeURIComponent(phone)}`,
+    ),
+  khataAdjust: (body: {
+    phone: string
+    customerName: string
+    vehicle?: string
+    mode: 'credit' | 'debit'
+    amount: number
+    reason: string
+  }) =>
+    request<{ balance: CustomerBalance; transaction: KhataTransaction }>('/khata/adjust', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   demoLogin: (role: Role) =>
     request<AuthResponse>('/auth/demo', {

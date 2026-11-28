@@ -25,6 +25,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { api } from '@/lib/api'
 import type { Pass, PassStatus, PayMode, PlanId, VehicleType } from '@/types'
 import { useAuth } from '@/state/AuthContext'
 import { useData } from '@/state/DataContext'
@@ -124,6 +125,11 @@ export default function PassesPage() {
   const [endDate, setEndDate] = useState(isoDate(new Date(planEndDate('monthly', today))))
   const [amount, setAmount] = useState(proratedMonthlyPrice(today, settings.monthlyRate))
   const [paymentMode, setPaymentMode] = useState<PayMode>('cash')
+  const [availableAdvance, setAvailableAdvance] = useState(0)
+  const [useAdvance, setUseAdvance] = useState(false)
+  const [advanceToUse, setAdvanceToUse] = useState(0)
+  const [cashReceived, setCashReceived] = useState('')
+  const [saveChangeAsAdvance, setSaveChangeAsAdvance] = useState(true)
   const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState<{ name?: string; phone?: string; vehicle?: string; dates?: string }>({})
   const [creating, setCreating] = useState(false)
@@ -271,6 +277,44 @@ export default function PassesPage() {
     return Object.keys(next).length === 0
   }
 
+  useEffect(() => {
+    if (!formOpen) return
+    const clean = phone.replace(/\D/g, '').slice(-10)
+    if (clean.length < 10) {
+      setAvailableAdvance(0)
+      setUseAdvance(false)
+      setAdvanceToUse(0)
+      return
+    }
+    let active = true
+    void api
+      .khataByPhone(clean)
+      .then((res) => {
+        if (!active) return
+        const bal = res.balance?.balance ?? 0
+        setAvailableAdvance(bal)
+        if (bal > 0) {
+          setUseAdvance(true)
+          setAdvanceToUse(Math.min(bal, amount))
+        } else {
+          setUseAdvance(false)
+          setAdvanceToUse(0)
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [formOpen, phone, amount])
+
+  const effectiveAdvanceUsed = useAdvance ? Math.min(availableAdvance, Math.max(0, advanceToUse), amount) : 0
+  const remainingPayable = Math.max(0, amount - effectiveAdvanceUsed)
+  const cashChange =
+    paymentMode === 'cash' && remainingPayable > 0 && Number(cashReceived) > remainingPayable
+      ? Math.round((Number(cashReceived) - remainingPayable) * 100) / 100
+      : 0
+  const effectiveAdvanceSaved = cashChange > 0 && saveChangeAsAdvance ? cashChange : 0
+
   const submitCreate = async (transactionId?: string): Promise<boolean> => {
     setCreating(true)
     try {
@@ -285,6 +329,8 @@ export default function PassesPage() {
         amount,
         paymentMode,
         transactionId,
+        advanceUsed: effectiveAdvanceUsed,
+        advanceSaved: effectiveAdvanceSaved,
         notes,
       })
       toast({
@@ -305,7 +351,7 @@ export default function PassesPage() {
 
   const handleCreate = () => {
     if (!validateForm()) return
-    if (paymentMode === 'upi') {
+    if (paymentMode === 'upi' && remainingPayable > 0) {
       setFormOpen(false)
       setUpiOpen(true)
       return
@@ -548,8 +594,8 @@ export default function PassesPage() {
         title={t('passes.newTitle')}
         subtitle={t('passes.newSubtitle')}
         footer={
-          <Button full loading={creating} onClick={handleCreate} icon={paymentMode === 'upi' ? QrCode : Ticket} className="min-h-[52px]">
-            {paymentMode === 'upi' ? t('upi.showQr') : t('passes.create')}
+          <Button full loading={creating} onClick={handleCreate} icon={paymentMode === 'upi' && remainingPayable > 0 ? QrCode : Ticket} className="min-h-[52px]">
+            {paymentMode === 'upi' && remainingPayable > 0 ? t('upi.showQr') : t('passes.create')}
           </Button>
         }
       >
@@ -649,6 +695,76 @@ export default function PassesPage() {
             onChange={(event) => setAmount(Math.max(0, Number(event.target.value) || 0))}
             icon={IndianRupee}
           />
+
+          {availableAdvance > 0 && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    Available Advance Balance: {formatMoney(availableAdvance, lang)}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                    Remaining Payable: <span className="font-mono font-bold">{formatMoney(remainingPayable, lang)}</span>
+                  </p>
+                </div>
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-emerald-900 dark:text-emerald-100">
+                  <input
+                    type="checkbox"
+                    checked={useAdvance}
+                    onChange={(e) => {
+                      setUseAdvance(e.target.checked)
+                      if (e.target.checked) setAdvanceToUse(Math.min(availableAdvance, amount))
+                    }}
+                    className="h-4 w-4 accent-emerald-600"
+                  />
+                  Use
+                </label>
+              </div>
+              {useAdvance && (
+                <div className="mt-2.5">
+                  <TextInput
+                    label="Advance Amount to Use (₹)"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={Math.min(availableAdvance, amount)}
+                    value={String(advanceToUse)}
+                    onChange={(e) =>
+                      setAdvanceToUse(Math.min(availableAdvance, amount, Math.max(0, Number(e.target.value) || 0)))
+                    }
+                    icon={IndianRupee}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {paymentMode === 'cash' && remainingPayable > 0 && (
+            <div className="space-y-2">
+              <TextInput
+                label="Cash Received (₹)"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={cashReceived}
+                onChange={(e) => setCashReceived(e.target.value)}
+                placeholder={String(remainingPayable)}
+                optionalLabel={t('common.optional')}
+                icon={Banknote}
+              />
+              {cashChange > 0 && (
+                <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <span>Save {formatMoney(cashChange, lang)} change as Customer Advance Balance</span>
+                  <input
+                    type="checkbox"
+                    checked={saveChangeAsAdvance}
+                    onChange={(e) => setSaveChangeAsAdvance(e.target.checked)}
+                    className="h-4 w-4 accent-amber-600"
+                  />
+                </label>
+              )}
+            </div>
+          )}
 
           <div>
             <p className="label">{t('admin.paymentMode')}</p>
@@ -830,7 +946,7 @@ export default function PassesPage() {
 
       <UpiPaySheet
         open={upiOpen}
-        amount={amount}
+        amount={remainingPayable}
         note={vehicle ? `${t('upi.notePass', { name: name.trim() })} ${formatPlate(vehicle)}` : t('upi.notePass', { name: name.trim() })}
         confirmLabel={t('upi.confirmPass')}
         busy={creating}

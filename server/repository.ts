@@ -889,6 +889,184 @@ export function getLoginSecuritySummary() {
   }
 }
 
+/* -------------------------- customer advance khata ------------------------- */
+
+export interface CustomerBalanceRecord {
+  phone: string
+  name: string
+  vehicle?: string
+  balance: number
+  updatedAt: string
+}
+
+export interface KhataTransactionRecord {
+  id: string
+  phone: string
+  customerName: string
+  vehicle?: string
+  passId?: string
+  passToken?: string
+  type: 'credit' | 'debit' | 'adjustment'
+  prevBalance: number
+  amountAdded: number
+  amountUsed: number
+  newBalance: number
+  paymentMode?: string
+  description: string
+  byName?: string
+  byUsername?: string
+  at: string
+}
+
+function normalizePhone10(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-10)
+}
+
+export function getCustomerBalance(phone: string): CustomerBalanceRecord | null {
+  const clean = normalizePhone10(phone)
+  if (clean.length < 10) return null
+  const row = stmt('SELECT * FROM customer_balances WHERE phone = ?').get(clean) as Row | undefined
+  if (!row) return null
+  return {
+    phone: String(row.phone),
+    name: String(row.name),
+    vehicle: row.vehicle ? String(row.vehicle) : undefined,
+    balance: Number(row.balance ?? 0),
+    updatedAt: String(row.updated_at),
+  }
+}
+
+export function listCustomerBalances(): CustomerBalanceRecord[] {
+  return (stmt('SELECT * FROM customer_balances ORDER BY balance DESC, updated_at DESC').all() as Row[]).map((row) => ({
+    phone: String(row.phone),
+    name: String(row.name),
+    vehicle: row.vehicle ? String(row.vehicle) : undefined,
+    balance: Number(row.balance ?? 0),
+    updatedAt: String(row.updated_at),
+  }))
+}
+
+export function listKhataTransactions(phone?: string, limit = 200): KhataTransactionRecord[] {
+  const rows = phone
+    ? (stmt('SELECT * FROM khata_transactions WHERE phone = ? ORDER BY at DESC LIMIT ?').all(normalizePhone10(phone), limit) as Row[])
+    : (stmt('SELECT * FROM khata_transactions ORDER BY at DESC LIMIT ?').all(limit) as Row[])
+  return rows.map((r) => ({
+    id: String(r.id),
+    phone: String(r.phone),
+    customerName: String(r.customer_name),
+    vehicle: r.vehicle ? String(r.vehicle) : undefined,
+    passId: r.pass_id ? String(r.pass_id) : undefined,
+    passToken: r.pass_token ? String(r.pass_token) : undefined,
+    type: r.type as KhataTransactionRecord['type'],
+    prevBalance: Number(r.prev_balance),
+    amountAdded: Number(r.amount_added),
+    amountUsed: Number(r.amount_used),
+    newBalance: Number(r.new_balance),
+    paymentMode: r.payment_mode ? String(r.payment_mode) : undefined,
+    description: String(r.description),
+    byName: r.by_name ? String(r.by_name) : undefined,
+    byUsername: r.by_username ? String(r.by_username) : undefined,
+    at: String(r.at),
+  }))
+}
+
+export function applyKhataTransaction(input: {
+  phone: string
+  customerName: string
+  vehicle?: string
+  passId?: string
+  passToken?: string
+  type: 'credit' | 'debit' | 'adjustment'
+  amountAdded?: number
+  amountUsed?: number
+  paymentMode?: string
+  description: string
+  byName?: string
+  byUsername?: string
+}): { balance: CustomerBalanceRecord; transaction: KhataTransactionRecord } {
+  const cleanPhone = normalizePhone10(input.phone)
+  if (cleanPhone.length < 10) throw new Error('Valid 10-digit phone number is required for advance balance')
+  const added = Math.max(0, Math.round((input.amountAdded ?? 0) * 100) / 100)
+  const used = Math.max(0, Math.round((input.amountUsed ?? 0) * 100) / 100)
+  const nowIso = new Date().toISOString()
+
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    const existing = getCustomerBalance(cleanPhone)
+    const prevBalance = existing?.balance ?? 0
+    const newBalance = Math.round((prevBalance + added - used) * 100) / 100
+    if (newBalance < 0) {
+      throw new Error(`Insufficient advance balance (available: ₹${prevBalance}, requested: ₹${used})`)
+    }
+
+    stmt(
+      `INSERT INTO customer_balances (phone, name, vehicle, balance, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(phone) DO UPDATE SET
+         name = excluded.name,
+         vehicle = COALESCE(excluded.vehicle, customer_balances.vehicle),
+         balance = excluded.balance,
+         updated_at = excluded.updated_at`,
+    ).run(cleanPhone, input.customerName.trim(), input.vehicle ?? existing?.vehicle ?? null, newBalance, nowIso)
+
+    const txId = `kh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+    stmt(
+      `INSERT INTO khata_transactions
+       (id, phone, customer_name, vehicle, pass_id, pass_token, type, prev_balance, amount_added, amount_used, new_balance, payment_mode, description, by_name, by_username, at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      txId,
+      cleanPhone,
+      input.customerName.trim(),
+      input.vehicle ?? existing?.vehicle ?? null,
+      input.passId ?? null,
+      input.passToken ?? null,
+      input.type,
+      prevBalance,
+      added,
+      used,
+      newBalance,
+      input.paymentMode ?? null,
+      input.description,
+      input.byName ?? null,
+      input.byUsername ?? null,
+      nowIso,
+    )
+
+    db.exec('COMMIT')
+    return {
+      balance: {
+        phone: cleanPhone,
+        name: input.customerName.trim(),
+        vehicle: input.vehicle ?? existing?.vehicle,
+        balance: newBalance,
+        updatedAt: nowIso,
+      },
+      transaction: {
+        id: txId,
+        phone: cleanPhone,
+        customerName: input.customerName.trim(),
+        vehicle: input.vehicle ?? existing?.vehicle,
+        passId: input.passId,
+        passToken: input.passToken,
+        type: input.type,
+        prevBalance,
+        amountAdded: added,
+        amountUsed: used,
+        newBalance,
+        paymentMode: input.paymentMode,
+        description: input.description,
+        byName: input.byName,
+        byUsername: input.byUsername,
+        at: nowIso,
+      },
+    }
+  } catch (err) {
+    try { db.exec('ROLLBACK') } catch { /* ignore */ }
+    throw err
+  }
+}
+
 /* ---------------------------------- reset ---------------------------------- */
 
 export function clearAllData(): void {

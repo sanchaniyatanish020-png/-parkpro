@@ -169,6 +169,34 @@ db.exec(`
     at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_login_events_at ON login_events(at);
+
+  CREATE TABLE IF NOT EXISTS customer_balances (
+    phone TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    vehicle TEXT,
+    balance REAL NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS khata_transactions (
+    id TEXT PRIMARY KEY,
+    phone TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    vehicle TEXT,
+    pass_id TEXT,
+    pass_token TEXT,
+    type TEXT NOT NULL CHECK (type IN ('credit', 'debit', 'adjustment')),
+    prev_balance REAL NOT NULL,
+    amount_added REAL NOT NULL DEFAULT 0,
+    amount_used REAL NOT NULL DEFAULT 0,
+    new_balance REAL NOT NULL CHECK (new_balance >= 0),
+    payment_mode TEXT,
+    description TEXT NOT NULL,
+    by_name TEXT,
+    by_username TEXT,
+    at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_khata_tx_phone ON khata_transactions(phone, at);
 `)
 
 const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: string }[]

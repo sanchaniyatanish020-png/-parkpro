@@ -13,6 +13,7 @@ import authRoutes from './routes/auth'
 import bootstrapRoutes from './routes/bootstrap'
 import demoRoutes from './routes/demo'
 import eventRoutes from './routes/events'
+import khataRoutes from './routes/khata'
 import logRoutes from './routes/logs'
 import passRoutes from './routes/passes'
 import reminderRoutes from './routes/reminders'
@@ -80,6 +81,7 @@ app.use('/api/walkins', walkinRoutes)
 app.use('/api/logs', logRoutes)
 app.use('/api/site', siteRoutes)
 app.use('/api/staff', staffRoutes)
+app.use('/api/khata', khataRoutes)
 app.use('/api/sync', syncRoutes)
 app.use('/api/demo', demoRoutes)
 

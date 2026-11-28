@@ -13,6 +13,7 @@ const WalkInPage = lazy(() => import('@/pages/WalkInPage'))
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const WhatsappRemindersPage = lazy(() => import('@/pages/WhatsappRemindersPage'))
+const KhataPage = lazy(() => import('@/pages/KhataPage'))
 const AdminHome = lazy(() => import('@/pages/AdminHome'))
 const PassesPage = lazy(() => import('@/pages/PassesPage'))
 const PassDetailPage = lazy(() => import('@/pages/PassDetailPage'))
@@ -120,6 +121,14 @@ export default function App() {
             element={
               <RequirePermission permission="passes">
                 <WhatsappRemindersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/khata"
+            element={
+              <RequirePermission permission="passes">
+                <KhataPage />
               </RequirePermission>
             }
           />

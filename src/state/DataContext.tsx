@@ -368,7 +368,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       }
-      const response = await api.createPass(pass)
+      const response = await api.createPass({
+        ...pass,
+        advanceUsed: input.advanceUsed,
+        advanceSaved: input.advanceSaved,
+      } as Pass)
       const savedPass = response.pass ?? pass
       setPasses((prev) => [savedPass, ...prev])
       void db.putPass(savedPass)
